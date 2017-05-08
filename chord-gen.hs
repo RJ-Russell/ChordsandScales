@@ -1,6 +1,29 @@
 
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
-    deriving (Show, Enum, Eq, Ord)
+    deriving (Show, Enum, Ord, Eq)
+
+type Scale = [SingleNote]
+type Steps = [Int]
+
+data DiatonicMode = Ionian | Dorian | Phrygian | Lydian | Mixolydian | Aeolian | Locrian
+    deriving (Show)
+
+genMode :: DiatonicMode -> Steps
+genMode Ionian     = [0, 2, 4, 5, 7, 9, 11, 12]
+genMode Dorian     = drop 1 (genMode Ionian)     ++ [2]
+genMode Phrygian   = drop 1 (genMode Dorian)     ++ [4]
+genMode Lydian     = drop 1 (genMode Phrygian)   ++ [5]
+genMode Mixolydian = drop 1 (genMode Lydian)     ++ [7]
+genMode Aeolian    = drop 1 (genMode Mixolydian) ++ [9]
+genMode Locrian    = drop 1 (genMode Aeolian)    ++ [11]
+
+data Triad = Major | Minor
+    deriving (Show)
+
+genTriad :: Triad -> Steps
+genTriad Major = [0, 4, 7]
+genTriad Minor = [0, 3, 7]
+
 
 -- Increment a half step.
 -- Calling `succ` on the last item of the data type produces an error,
@@ -17,16 +40,26 @@ halfStep sn = succ sn
 nSteps :: SingleNote -> Int -> SingleNote
 nSteps sn x = iterate halfStep sn !! x
 
--- Define the Ionian scale. Each number represents how many SingleNotes
--- there are to the next note in the scale.
-ionianScale = [0, 2, 4, 5, 7, 9, 11]
-aoliyanScale = [2, 4, 5, 7, 9, 11, 0]
-
 -- Generates a list of SingleNotes that are in the key (where the key is the root note)
 -- which corresponds to the Ionian scale.
 -- Later this will be changed to generate all scales in the key.
-genScale :: SingleNote -> [SingleNote]
-genScale root = [nSteps root x | x <- aoliyanScale]
+genDiatonicScale :: SingleNote -> DiatonicMode -> Scale
+genDiatonicScale root scale = [nSteps root x | x <- genMode scale]
 
-stdTune = [E, A, D, G, B, E]
+genTriadScale :: SingleNote -> Triad -> Scale
+genTriadScale root scale = [nSteps root x | x <- genTriad scale]
 
+-- Need a function that maps notes to strings.
+-- Needs to take a Scale, and the tuning, and give back the positions
+-- on each string where that note exists. Try to create a list of lists, where
+-- each list element represents a string. Each inner list element should
+-- be a list of Ints representing the fret position to play that note.
+
+numFrets = 25 
+stdTuning = [E, A, D, G, B, E]
+
+chromatic :: SingleNote -> Scale
+chromatic n = take 25 (iterate halfStep n)
+
+genStrings :: [Scale]
+genStrings = [chromatic n | n <- stdTuning]
