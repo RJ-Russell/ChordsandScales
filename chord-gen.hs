@@ -1,8 +1,8 @@
 
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
-    deriving (Show, Enum, Ord, Eq)
+    deriving (Show, Enum)
 
-type Scale = [SingleNote]
+type Notes = [SingleNote]
 type Steps = [Int]
 
 data DiatonicMode = Ionian | Dorian | Phrygian | Lydian | Mixolydian | Aeolian | Locrian
@@ -43,10 +43,10 @@ nSteps sn x = iterate halfStep sn !! x
 -- Generates a list of SingleNotes that are in the key (where the key is the root note)
 -- which corresponds to the Ionian scale.
 -- Later this will be changed to generate all scales in the key.
-genDiatonicScale :: SingleNote -> DiatonicMode -> Scale
+genDiatonicScale :: SingleNote -> DiatonicMode -> Notes
 genDiatonicScale root scale = [nSteps root x | x <- genMode scale]
 
-genTriadScale :: SingleNote -> Triad -> Scale
+genTriadScale :: SingleNote -> Triad -> Notes
 genTriadScale root scale = [nSteps root x | x <- genTriad scale]
 
 -- Need a function that maps notes to strings.
@@ -55,11 +55,18 @@ genTriadScale root scale = [nSteps root x | x <- genTriad scale]
 -- each list element represents a string. Each inner list element should
 -- be a list of Ints representing the fret position to play that note.
 
-numFrets = 25 
+numFrets = 25
 stdTuning = [E, A, D, G, B, E]
 
-chromatic :: SingleNote -> Scale
-chromatic n = take 25 (iterate halfStep n)
+chromatic :: SingleNote -> Notes
+chromatic n = take numFrets (iterate halfStep n)
 
-genStrings :: [Scale]
+genStrings :: [Notes]
 genStrings = [chromatic n | n <- stdTuning]
+
+makeString :: Notes -> String
+makeString [x] = show x
+makeString (x:xs) = show x ++ " " ++ makeString xs
+
+makeGuitar :: IO()
+makeGuitar = putStrLn . unlines $ map makeString genStrings
