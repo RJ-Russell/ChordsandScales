@@ -1,72 +1,86 @@
+import Data.List
 
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
-    deriving (Show, Enum)
+    deriving (Show, Enum, Eq)
 
+-- Give more meaningful names.
 type Notes = [SingleNote]
 type Steps = [Int]
 
-data DiatonicMode = Ionian | Dorian | Phrygian | Lydian | Mixolydian | Aeolian | Locrian
-    deriving (Show)
+-- Give the guitar 1 octave (0-12 = 13).
+--  NOTE: This will change later once I figure out how to represent notes an
+--  octave higher.
+numFrets :: Int
+numFrets = 13
 
-genMode :: DiatonicMode -> Steps
-genMode Ionian     = [0, 2, 4, 5, 7, 9, 11, 12]
-genMode Dorian     = drop 1 (genMode Ionian)     ++ [2]
-genMode Phrygian   = drop 1 (genMode Dorian)     ++ [4]
-genMode Lydian     = drop 1 (genMode Phrygian)   ++ [5]
-genMode Mixolydian = drop 1 (genMode Lydian)     ++ [7]
-genMode Aeolian    = drop 1 (genMode Mixolydian) ++ [9]
-genMode Locrian    = drop 1 (genMode Aeolian)    ++ [11]
-
-data Triad = Major | Minor
-    deriving (Show)
-
-genTriad :: Triad -> Steps
-genTriad Major = [0, 4, 7]
-genTriad Minor = [0, 3, 7]
-
-
--- Increment a half step.
--- Calling `succ` on the last item of the data type produces an error,
--- therefore, pattern match the last note, and set the next thing to the
--- first note so that it wraps around
--- For all other notes, call `succ` on the note to get the sucessor.
+-- Gets the successor of the SingleNote passed in. Wraps around so that
+-- the datatype SingleNote is circular.
 halfStep :: SingleNote -> SingleNote
 halfStep Ab = A
-halfStep sn = succ sn
+halfStep n  = succ n
 
--- Returns the note that is 'n'-(half steps) away from the note
--- passed in. Generates a list of all the notes from the note passed in
--- and takes the one that is `x` steps away.
+-- Returns a SingleNote that is `n` steps from the SingleNote passed in.
 nSteps :: SingleNote -> Int -> SingleNote
-nSteps sn x = iterate halfStep sn !! x
+nSteps n x = iterate halfStep n !! x
 
--- Generates a list of SingleNotes that are in the key (where the key is the root note)
--- which corresponds to the Ionian scale.
--- Later this will be changed to generate all scales in the key.
-genDiatonicScale :: SingleNote -> DiatonicMode -> Notes
-genDiatonicScale root scale = [nSteps root x | x <- genMode scale]
+-- Generates a scale of SingleNotes, using the SingleNote argument
+-- as the starting point and the a predefined array of int steps as the scale.
+genScale :: SingleNote -> Steps -> Notes
+genScale n sc = [nSteps n x | x <- sc]
 
-genTriadScale :: SingleNote -> Triad -> Notes
-genTriadScale root scale = [nSteps root x | x <- genTriad scale]
+-- Scales that are defined.
+ionian :: SingleNote -> Notes
+ionian root = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
 
--- Need a function that maps notes to strings.
--- Needs to take a Scale, and the tuning, and give back the positions
--- on each string where that note exists. Try to create a list of lists, where
--- each list element represents a string. Each inner list element should
--- be a list of Ints representing the fret position to play that note.
+majTriad :: SingleNote -> Notes
+majTriad root = genScale root [0, 4, 7]
 
-numFrets = 25
-stdTuning = [E, A, D, G, B, E]
+-- Generates a chromatic scale using the SingleNote passed in as the starting point.
+chromaticScale :: SingleNote -> Notes
+chromaticScale n = take numFrets (iterate halfStep n)
 
-chromatic :: SingleNote -> Notes
-chromatic n = take numFrets (iterate halfStep n)
+-- Generates a chromatic scale of SingleNotes for each note in the tuning passed in.
+allNotes :: Notes -> [Notes]
+allNotes tuning = [chromaticScale n | n <- tuning]
 
-genStrings :: [Notes]
-genStrings = [chromatic n | n <- stdTuning]
+fretPosition :: SingleNote -> SingleNote -> Int
+fretPosition f s = length $ takeWhile (/=s) (iterate halfStep f)
 
-makeString :: Notes -> String
-makeString [x] = show x
-makeString (x:xs) = show x ++ " " ++ makeString xs
+getPos :: [SingleNote] -> SingleNote -> Steps
+getPos scale n = [fretPosition n s | s <- scale]
 
-makeGuitar :: IO()
-makeGuitar = putStrLn . unlines $ map makeString genStrings
+positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
+positions tuning scale root = [getPos (scale root) t | t <- tuning]
+
+
+chordsPosZero tuning scale root = map head $ map sort $ positions tuning scale root
+
+
+
+
+-- ====== TUNINGS ===============================
+standard :: Notes
+standard = [E, A, D, G, B, E]
+
+dropD :: Notes
+dropD = [D, A, D, G, B, E]
+
+halfDown :: Notes
+halfDown = [Eb, Ab, Db, Gb, Bb, Eb]
+
+fullDown :: Notes
+fullDown = [D, G, C, F, A, D]
+
+-- ==============================================
+
+
+putString :: Notes -> String
+putString [n] = show n
+putString (n:ns) = show n ++ " " ++ putString ns
+
+putAllStrings :: Notes -> IO()
+putAllStrings tuning = putStrLn $ unlines $ map putString (allNotes tuning)
+
+
+main :: IO()
+main = print "hello"
