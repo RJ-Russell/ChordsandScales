@@ -11,7 +11,7 @@ type Steps = [Int]
 --  NOTE: This will change later once I figure out how to represent notes an
 --  octave higher.
 numFrets :: Int
-numFrets = 13
+numFrets = 25
 
 -- Gets the successor of the SingleNote passed in. Wraps around so that
 -- the datatype SingleNote is circular.
@@ -28,6 +28,7 @@ nSteps n x = iterate halfStep n !! x
 genScale :: SingleNote -> Steps -> Notes
 genScale n sc = [nSteps n x | x <- sc]
 
+-- ==============================================
 -- Scales that are defined.
 ionian :: SingleNote -> Notes
 ionian root = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
@@ -35,25 +36,31 @@ ionian root = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
 majTriad :: SingleNote -> Notes
 majTriad root = genScale root [0, 4, 7]
 
+minTriad :: SingleNote -> Notes
+minTriad root = genScale root [0, 3, 7]
+
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
 chromaticScale :: SingleNote -> Notes
-chromaticScale n = take numFrets (iterate halfStep n)
+chromaticScale root = take numFrets (iterate halfStep root)
+-- ==============================================
 
 -- Generates a chromatic scale of SingleNotes for each note in the tuning passed in.
 allNotes :: Notes -> [Notes]
 allNotes tuning = [chromaticScale n | n <- tuning]
 
-fretPosition :: SingleNote -> SingleNote -> Int
-fretPosition f s = length $ takeWhile (/=s) (iterate halfStep f)
+-- fretPosition :: SingleNote -> SingleNote -> Int
+-- fretPosition f s = length $ takeWhile (/=s) (iterate halfStep f)
 
-getPos :: [SingleNote] -> SingleNote -> Steps
-getPos scale n = [fretPosition n s | s <- scale]
+-- getPos :: [SingleNote] -> SingleNote -> Steps
+-- getPos scale n = [fretPosition n s | s <- scale]
 
-positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
-positions tuning scale root = [getPos (scale root) t | t <- tuning]
+positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
+positions tuning scale root pos = [getPos (scale root) t | t <- tuning,
+                                let fretPosition f s = length $ takeWhile (/=s) (iterate halfStep f),
+                                let getPos scale n = [fretPosition n s | s <- scale]]
 
 
-chordsPosZero tuning scale root = map head $ map sort $ positions tuning scale root
+chordsPosZero tuning scale root pos = map (head . sort . (filter(pos<=))) $ positions tuning scale root pos
 
 
 
@@ -74,13 +81,25 @@ fullDown = [D, G, C, F, A, D]
 -- ==============================================
 
 
-putString :: Notes -> String
-putString [n] = show n
-putString (n:ns) = show n ++ " " ++ putString ns
+putNotes :: Notes -> String
+putNotes [n] = show n
+putNotes (n:ns) = show n ++ " " ++ putNotes ns
+
+putSteps :: Steps -> String
+putSteps [n] = show n
+putSteps (n:ns) = show n ++ " " ++ putSteps ns
 
 putAllStrings :: Notes -> IO()
-putAllStrings tuning = putStrLn $ unlines $ map putString (allNotes tuning)
+putAllStrings tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
 
+
+makeTab tuning scale root fret =
+    fretHeader >> tuneString >> topBar >> fretStrings >> frets >> fretStrings
+            where fretHeader = putStrLn ("Chord: " ++ show root ++ " Fret: " ++ show fret)
+                  tuneString = putStrLn $ putNotes tuning
+                  topBar = putStrLn "==========="
+                  fretStrings = putStrLn "| | | | | |"
+                  frets = putStrLn $ putSteps (chordsPosZero tuning scale root fret)
 
 main :: IO()
 main = print "hello"
