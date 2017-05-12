@@ -54,16 +54,21 @@ allNotes tuning = [chromaticScale n | n <- tuning]
 -- getPos :: [SingleNote] -> SingleNote -> Steps
 -- getPos scale n = [fretPosition n s | s <- scale]
 
-positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
+-- positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
 positions tuning scale root pos = [getPos (scale root) t | t <- tuning,
-                                let fretPosition f s = length $ takeWhile (/=s) (iterate halfStep f),
+                                let fretPosition f s = length
+                                        $ takeWhile (/=s) (iterate halfStep f),
                                 let getPos scale n = [fretPosition n s | s <- scale]]
 
 
-chordsPosZero tuning scale root pos = map (head . sort . (filter(pos<=))) $ positions tuning scale root pos
+chordsPosZero tuning scale root pos = map (sort . filterRange pos)
+                                      $ positions tuning scale root pos
 
-
-
+filterRange :: Int -> Steps -> Steps
+filterRange pos [] = []
+filterRange pos (x:xs) | inRange pos x = x : filterRange pos xs
+                       | otherwise = filterRange pos xs
+                       where inRange pos x = pos - 1 < x && x <= pos + 4
 
 -- ====== TUNINGS ===============================
 standard :: Notes
@@ -93,13 +98,13 @@ putAllStrings :: Notes -> IO()
 putAllStrings tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
 
 
-makeTab tuning scale root fret =
-    fretHeader >> tuneString >> topBar >> fretStrings >> frets >> fretStrings
-            where fretHeader = putStrLn ("Chord: " ++ show root ++ " Fret: " ++ show fret)
-                  tuneString = putStrLn $ putNotes tuning
-                  topBar = putStrLn "==========="
-                  fretStrings = putStrLn "| | | | | |"
-                  frets = putStrLn $ putSteps (chordsPosZero tuning scale root fret)
+-- makeTab tuning scale root fret =
+--     fretHeader >> tuneString >> topBar >> fretStrings >> frets >> fretStrings
+--             where fretHeader = putStrLn ("Chord: " ++ show root ++ " Fret: " ++ show fret)
+--                   tuneString = putStrLn $ putNotes tuning
+--                   topBar = putStrLn "==========="
+--                   fretStrings = putStrLn "| | | | | |"
+--                   frets = putStrLn $ putSteps (chordsPosZero tuning scale root fret)
 
 main :: IO()
 main = print "hello"
