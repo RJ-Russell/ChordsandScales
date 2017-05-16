@@ -115,5 +115,5 @@ makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
 
 -- Zip lists like this: [E, A] [[1,2,3], [3,4,5]] = [(E, 1), (E, 2), (E, 3), (A, 3), (A, 4), (A, 5)]
 --      so zip [E, A] [[1,2,3], [4,5,6]] = (E, [1,2,3]), (A, [4,5,6])
--- Pad output when one digit: " 0" or "00"
--- Handle empty list exception at high numbered frets
+-- Error check initial input? hmmm... I dont need to, but it might be nice?
+-- User interface to select things?
