@@ -68,9 +68,19 @@ positions tuning scale root = [getPos (scale root) | t <- tuning,
                                 let getPos ss = concat [fretPosition t s | s <- ss]]
 
 -- Generates a list of positions on the fretboard for a chord at a given fret.
-chords :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> Steps
-chords tuning scale root pos = map (minimum . filter (pos<=))
+chords :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Maybe Int]
+chords tuning scale root pos = map (getMinimum . filter (pos<=))
                                $ positions tuning scale root
+
+getMinimum :: Steps -> Maybe Int
+getMinimum [] = Nothing
+getMinimum xs = Just (minimum xs)
+
+displayFretPosition :: Maybe Int -> String
+displayFretPosition x | x == Nothing = "  x"
+                      | x < Just 10  = "  " ++ show (toInt x)
+                      | otherwise    = " " ++ show (toInt x)
+                      where toInt (Just x) = x
 
 -- NOTE: This is not being used. Remove later??
 -- filterRange :: Int -> Steps -> Steps
@@ -96,12 +106,12 @@ makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
 
 makeChord :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
 makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
-    where fretHeader = putStrLn ("Chord: " ++ show root ++ " Fret: " ++ show fret)
+    where fretHeader = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
           getStrings = do
                         let n = reverse $ chords tuning scale root fret
                         let t = reverse tuning
                         z <- zip t n
-                        return (show (fst z) ++ " ||--" ++ show (snd z) ++ "--|")
+                        return (show (fst z) ++ " ||--" ++ displayFretPosition (snd z) ++ " --|")
 
 -- Zip lists like this: [E, A] [[1,2,3], [3,4,5]] = [(E, 1), (E, 2), (E, 3), (A, 3), (A, 4), (A, 5)]
 --      so zip [E, A] [[1,2,3], [4,5,6]] = (E, [1,2,3]), (A, [4,5,6])
