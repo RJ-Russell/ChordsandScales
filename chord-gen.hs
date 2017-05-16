@@ -77,10 +77,9 @@ getMinimum [] = Nothing
 getMinimum xs = Just (minimum xs)
 
 displayFretPosition :: Maybe Int -> String
-displayFretPosition x | x == Nothing = "  x"
-                      | x < Just 10  = "  " ++ show (toInt x)
-                      | otherwise    = " " ++ show (toInt x)
-                      where toInt (Just x) = x
+displayFretPosition Nothing = "  x"
+displayFretPosition (Just x) | x < 10 = " " ++ show x
+                             | otherwise = show x
 
 -- NOTE: This is not being used. Remove later??
 -- filterRange :: Int -> Steps -> Steps
@@ -111,7 +110,7 @@ makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
                         let n = reverse $ chords tuning scale root fret
                         let t = reverse tuning
                         z <- zip t n
-                        return (show (fst z) ++ " ||--" ++ displayFretPosition (snd z) ++ " --|")
+                        return (show (fst z) ++ " ||-- " ++ displayFretPosition (snd z) ++ " --|")
 
 -- Zip lists like this: [E, A] [[1,2,3], [3,4,5]] = [(E, 1), (E, 2), (E, 3), (A, 3), (A, 4), (A, 5)]
 --      so zip [E, A] [[1,2,3], [4,5,6]] = (E, [1,2,3]), (A, [4,5,6])
