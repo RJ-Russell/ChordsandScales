@@ -95,14 +95,15 @@ makeGuitar :: Notes -> IO()
 makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
 
 makeChord :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChord tuning scale root fret =
-    fretHeader >> tuneString >> topBar >> fretStrings >> frets >> fretStrings
-            where fretHeader = putStrLn ("Chord: " ++ show root ++ " Fret: " ++ show fret)
-                  tuneString = putStrLn $ putNotes tuning
-                  topBar = putStrLn "==========="
-                  fretStrings = putStrLn "| | | | | |"
-                  frets = putStrLn $ putSteps (chords tuning scale root fret)
+makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
+    where fretHeader = putStrLn ("Chord: " ++ show root ++ " Fret: " ++ show fret)
+          getStrings = do
+                        let n = reverse $ chords tuning scale root fret
+                        let t = reverse tuning
+                        z <- zip t n
+                        return (show (fst z) ++ " ||--" ++ show (snd z) ++ "--|")
 
-
-main :: IO()
-main = print "hello"
+-- Zip lists like this: [E, A] [[1,2,3], [3,4,5]] = [(E, 1), (E, 2), (E, 3), (A, 3), (A, 4), (A, 5)]
+--      so zip [E, A] [[1,2,3], [4,5,6]] = (E, [1,2,3]), (A, [4,5,6])
+-- Pad output when one digit: " 0" or "00"
+-- Handle empty list exception at high numbered frets
