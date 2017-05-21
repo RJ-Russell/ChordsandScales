@@ -1,5 +1,4 @@
 import Data.List
-import Control.Monad
 
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
     deriving (Show, Enum, Eq)
@@ -55,9 +54,8 @@ chromaticScale root = take numFrets (iterate halfStep root)
 -- fretboard for a given string tuned to a specific note.
 positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
 positions tuning scale root = [getPos (scale root) | t <- tuning,
-                                let fretPosition f s = [x | (n, x)
-                                       <- zip (chromaticScale f) [0..], s == n],
-                                let getPos ss = concat [fretPosition t s | s <- ss]]
+                                let fretPosition s = elemIndices s (chromaticScale t),
+                                let getPos ss = concat [fretPosition s | s <- ss]]
 
 filterDifference :: Steps -> Steps
 filterDifference [] = []
@@ -65,28 +63,22 @@ filterDifference xs | getDifference xs <= 2 = xs
                     | otherwise = [minimum xs]
                     where getDifference xs = abs $ foldr (-) 0 xs
 
--- Generates a list of positions on the fretboard for a chord at a given fret.
--- chords :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Maybe Int]
--- chords tuning scale root pos = map (take 2 . sort . filter (pos<=))
---                                $ positions tuning scale root
--- filterFrets fret [] = []
--- filterFrets fret (x:xs)  | (x - fret) <= 3 = x : filterFrets fret xs
---                          | otherwise = filterFrets fret (delete x xs)
+-- Generates a list of Steps for each note in the scale per string.
 scaleFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-scaleFingering tuning scale root pos = map (rmdups . sort . filter (pos<=))
+scaleFingering tuning scale root pos = map (nub . sort . filter (pos<=))
                                          $ positions tuning scale root
-                                      where rmdups [] = []
-                                            rmdups (x:xs) = x : rmdups (filter (/= x) xs)
 
+-- Generates a list of Steps for each note in the chord per string.
 chordFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
 chordFingering tuning scale root pos = map (filterDifference . take 2 . sort . filter (pos<=))
                                        $ positions tuning scale root
 
+-- Builds a single ASCII string.
 buildDisplay :: [(SingleNote, Steps)] -> [String]
 buildDisplay xs = [makeString x | x <- xs]
-                        where makeString (n,[])  = show n ++ " |--" ++ showPositions []
-                              makeString (n,[x]) = show n ++ " |--" ++ showPositions [x]
-                              makeString (n,xs)  = show n ++ " |--" ++ showPositions xs
+                        where makeString (s,[])  = show s ++ " |--" ++ showPositions []
+                              makeString (s,[x]) = show s ++ " |--" ++ showPositions [x]
+                              makeString (s,xs)  = show s ++ " |--" ++ showPositions xs
                               showPositions [] = "  x "
                               showPositions [x] | x < 10 = "  " ++ show x ++ " "
                                                         | otherwise = " " ++ show x ++ " "
@@ -98,22 +90,10 @@ putNotes :: Notes -> String
 putNotes [n] = show n
 putNotes (n:ns) = show n ++ " " ++ putNotes ns
 
-putSteps :: Steps -> String
-putSteps [n] = show n
-putSteps (n:ns) = show n ++ " " ++ putSteps ns
-
-
--- Functions to output guitar things.
-makeGuitar :: Notes -> IO()
-makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
-            where allNotes tuning = [chromaticScale n | n <- tuning]
-
-makeChord, makeScale :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChord tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret chordFingering)
-makeScale tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret scaleFingering)
-
-fretHeader :: SingleNote -> Int -> IO()
-fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
+-- putSteps :: Steps -> String
+-- putSteps [] = "x"
+-- putSteps [n] = show n
+-- putSteps (n:ns) = show n ++ " " ++ putSteps ns
 
 -- NOTE: ?? What to do with this ??
 getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> (Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]) -> [String]
@@ -125,11 +105,18 @@ getStrings tuning scale root fret fingering = do
                                      b <- bds
                                      return (b ++ genSpaces maxLen b ++ "--|")
 
+fretHeader :: SingleNote -> Int -> IO()
+fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
+
 genSpaces :: Int -> String -> String
 genSpaces maxLen n | (maxLen - length n) == 0 = ""
                    | otherwise = concat $ replicate (maxLen - length n) " "
 
--- Zip lists like this: [E, A] [[1,2,3], [3,4,5]] = [(E, 1), (E, 2), (E, 3), (A, 3), (A, 4), (A, 5)]
---      so zip [E, A] [[1,2,3], [4,5,6]] = (E, [1,2,3]), (A, [4,5,6])
--- Error check initial input? hmmm... I dont need to, but it might be nice?
--- User interface to select things?
+-- Functions to output guitar things.
+makeGuitar :: Notes -> IO()
+makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
+            where allNotes tuning = [chromaticScale n | n <- tuning]
+
+makeChord, makeScale :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChord tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret chordFingering)
+makeScale tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret scaleFingering)
