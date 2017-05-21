@@ -59,31 +59,34 @@ positions tuning scale root = [getPos (scale root) | t <- tuning,
                                        <- zip (chromaticScale f) [0..], s == n],
                                 let getPos ss = concat [fretPosition t s | s <- ss]]
 
--- Generates a list of positions on the fretboard for a chord at a given fret.
--- chords :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Maybe Int]
--- chords tuning scale root pos = map (take 2 . sort . filter (pos<=))
---                                $ positions tuning scale root
-
-chords :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-chords tuning scale root pos = map (filterDifference . take 2 . sort . filter (pos<=))
-                               $ positions tuning scale root
-
-
-
 filterDifference :: Steps -> Steps
 filterDifference [] = []
 filterDifference xs | getDifference xs <= 2 = xs
                     | otherwise = [minimum xs]
                     where getDifference xs = abs $ foldr (-) 0 xs
 
+-- Generates a list of positions on the fretboard for a chord at a given fret.
+-- chords :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Maybe Int]
+-- chords tuning scale root pos = map (take 2 . sort . filter (pos<=))
+--                                $ positions tuning scale root
 -- filterFrets fret [] = []
 -- filterFrets fret (x:xs)  | (x - fret) <= 3 = x : filterFrets fret xs
 --                          | otherwise = filterFrets fret (delete x xs)
 
-displayFretPosition :: Maybe Int -> String
-displayFretPosition Nothing = "  x"
-displayFretPosition (Just x) | x < 10 = " " ++ show x
-                             | otherwise = show x
+chordFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
+chordFingering tuning scale root pos = map (filterDifference . take 2 . sort . filter (pos<=))
+                                       $ positions tuning scale root
+
+buildDisplay :: [(SingleNote, Steps)] -> [String]
+buildDisplay xs = [makeString x | x <- xs]
+                        where makeString (n,[])  = show n ++ " |--" ++ showPositions []
+                              makeString (n,[x]) = show n ++ " |--" ++ showPositions [x]
+                              makeString (n,xs)  = show n ++ " |--" ++ showPositions xs
+                              showPositions [] = "  x "
+                              showPositions [x] | x < 10 = "  " ++ show x ++ " "
+                                                        | otherwise = " " ++ show x ++ " "
+                              showPositions (x:xs) = showPositions [x] ++ showPositions xs
+
 -- ===============================================
 
 putNotes :: Notes -> String
@@ -101,12 +104,19 @@ makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
             where allNotes tuning = [chromaticScale n | n <- tuning]
 
 -- makeChord :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
--- makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
---     where fretHeader = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
---           getStrings = do
---                         let n = chords tuning scale root fret
---                         z <- zip tuning n
---                         return (show (fst z) ++ " ||-- " ++ displayFretPosition (snd z) ++ " --|")
+makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
+    where fretHeader = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
+          getStrings = do
+                        let ns     = chordFingering tuning scale root fret
+                        let nt     = zip tuning ns
+                        let bds    = buildDisplay nt
+                        let maxLen = maximum $ map length bds
+                        b <- bds
+                        return (b ++ genSpaces maxLen b ++ "--|")
+
+genSpaces :: Int -> String -> String
+genSpaces maxLen n | (maxLen - length n) == 0 = ""
+                   | otherwise = concat $ replicate (maxLen - length n) " "
 
 -- Zip lists like this: [E, A] [[1,2,3], [3,4,5]] = [(E, 1), (E, 2), (E, 3), (A, 3), (A, 4), (A, 5)]
 --      so zip [E, A] [[1,2,3], [4,5,6]] = (E, [1,2,3]), (A, [4,5,6])
