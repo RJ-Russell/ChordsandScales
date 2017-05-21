@@ -43,7 +43,7 @@ standard = [E, B, G, D, A, E]
 dropD    = [E, B, G, D, A, D]
 halfDown = [Eb, Bb, Gb, Db, Ab, Eb]
 fullDown = [D, A, F, C, G, D]
-
+ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
 chromaticScale :: SingleNote -> Notes
@@ -72,6 +72,11 @@ filterDifference xs | getDifference xs <= 2 = xs
 -- filterFrets fret [] = []
 -- filterFrets fret (x:xs)  | (x - fret) <= 3 = x : filterFrets fret xs
 --                          | otherwise = filterFrets fret (delete x xs)
+scaleFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
+scaleFingering tuning scale root pos = map (rmdups . sort . filter (pos<=))
+                                         $ positions tuning scale root
+                                      where rmdups [] = []
+                                            rmdups (x:xs) = x : rmdups (filter (/= x) xs)
 
 chordFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
 chordFingering tuning scale root pos = map (filterDifference . take 2 . sort . filter (pos<=))
@@ -103,16 +108,22 @@ makeGuitar :: Notes -> IO()
 makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
             where allNotes tuning = [chromaticScale n | n <- tuning]
 
--- makeChord :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChord tuning scale root fret = fretHeader >> mapM_ putStrLn getStrings
-    where fretHeader = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
-          getStrings = do
-                        let ns     = chordFingering tuning scale root fret
-                        let nt     = zip tuning ns
-                        let bds    = buildDisplay nt
-                        let maxLen = maximum $ map length bds
-                        b <- bds
-                        return (b ++ genSpaces maxLen b ++ "--|")
+makeChord, makeScale :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChord tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret chordFingering)
+makeScale tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret scaleFingering)
+
+fretHeader :: SingleNote -> Int -> IO()
+fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
+
+-- NOTE: ?? What to do with this ??
+getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> (Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]) -> [String]
+getStrings tuning scale root fret fingering = do
+                                     let ns     = fingering tuning scale root fret
+                                     let nt     = zip tuning ns
+                                     let bds    = buildDisplay nt
+                                     let maxLen = maximum $ map length bds
+                                     b <- bds
+                                     return (b ++ genSpaces maxLen b ++ "--|")
 
 genSpaces :: Int -> String -> String
 genSpaces maxLen n | (maxLen - length n) == 0 = ""
