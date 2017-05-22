@@ -74,17 +74,6 @@ chordFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
 chordFingering tuning scale root pos = map (filterDifference . take 2 . sort . filter (pos<=))
                                        $ positions tuning scale root
 
--- Builds a single ASCII string.
-buildDisplay :: [(SingleNote, Steps)] -> [String]
-buildDisplay xs = [makeString x | x <- xs]
-                        where makeString (s,[])  = showPositions []
-                              makeString (s,[x]) = showPositions [x]
-                              makeString (s,xs)  = showPositions xs
-                              showPositions [] = " x"
-                              showPositions [x] | x < 10 = " " ++ show x
-                                                | otherwise = show x
-                              showPositions (x:xs) = showPositions [x] ++ " (" ++ showPositions xs ++ ")"
-
 -- ===============================================
 
 -- Functions for Output
@@ -98,30 +87,35 @@ putNotes (n:ns) = show n ++ " " ++ putNotes ns
 -- putSteps [n] = show n
 -- putSteps (n:ns) = show n ++ " " ++ putSteps ns
 
+-- Builds an array of single ASCII string.
+buildDisplay :: [(SingleNote, Steps)] -> [String]
+buildDisplay xs = [show (fst x) ++ " ||" ++ showPositions (snd x) | x <- xs]
+                        where showPositions [] = "--x"
+                              showPositions [x] | x < 10 = "--" ++ show x
+                                                | otherwise = "-" ++ show x
+                              showPositions (x:xs) = showPositions [x] ++ showPositions xs
+
+
 -- NOTE: ?? What to do with this ??
-getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int
-              -> (Notes -> (SingleNote -> Notes) -> SingleNote
-              -> Int -> [Steps]) -> [String]
-getStrings tuning scale root fret fingering = do
-                                     let ns     = fingering tuning scale root fret
+getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [String]
+getStrings tuning scale root fret = do
+                                     let ns     = chordFingering tuning scale root fret
                                      let nt     = zip tuning ns
                                      let bds    = buildDisplay nt
                                      let maxLen = maximum $ map length bds
                                      b <- bds
-                                     return ("||-- " ++ b ++ genSpaces maxLen b ++ " --|")
-
-fretHeader :: SingleNote -> Int -> IO()
-fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
+                                     return (b ++ genSpaces maxLen b ++ "-|")
 
 genSpaces :: Int -> String -> String
 genSpaces maxLen n | (maxLen - length n) == 0 = ""
-                   | otherwise = concat $ replicate (maxLen - length n) " "
+                   | otherwise = concat $ replicate (maxLen - length n) "-"
 
 -- Functions to output guitar things.
 makeGuitar :: Notes -> IO()
 makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
             where allNotes tuning = [chromaticScale n | n <- tuning]
 
-makeChord, makeScale :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChord tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret chordFingering)
-makeScale tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret scaleFingering)
+makeChord :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChord tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret)
+              where fretHeader :: SingleNote -> Int -> IO()
+                    fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
