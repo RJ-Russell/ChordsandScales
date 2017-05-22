@@ -42,6 +42,7 @@ standard = [E, B, G, D, A, E]
 dropD    = [E, B, G, D, A, D]
 halfDown = [Eb, Bb, Gb, Db, Ab, Eb]
 fullDown = [D, A, F, C, G, D]
+openE    = [E, B, Ab, E, B, E]
 ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
@@ -76,16 +77,18 @@ chordFingering tuning scale root pos = map (filterDifference . take 2 . sort . f
 -- Builds a single ASCII string.
 buildDisplay :: [(SingleNote, Steps)] -> [String]
 buildDisplay xs = [makeString x | x <- xs]
-                        where makeString (s,[])  = show s ++ " |--" ++ showPositions []
-                              makeString (s,[x]) = show s ++ " |--" ++ showPositions [x]
-                              makeString (s,xs)  = show s ++ " |--" ++ showPositions xs
-                              showPositions [] = "  x "
-                              showPositions [x] | x < 10 = "  " ++ show x ++ " "
-                                                        | otherwise = " " ++ show x ++ " "
-                              showPositions (x:xs) = showPositions [x] ++ showPositions xs
+                        where makeString (s,[])  = showPositions []
+                              makeString (s,[x]) = showPositions [x]
+                              makeString (s,xs)  = showPositions xs
+                              showPositions [] = " x"
+                              showPositions [x] | x < 10 = " " ++ show x
+                                                | otherwise = show x
+                              showPositions (x:xs) = showPositions [x] ++ " (" ++ showPositions xs ++ ")"
 
 -- ===============================================
 
+-- Functions for Output
+-- ===============================================
 putNotes :: Notes -> String
 putNotes [n] = show n
 putNotes (n:ns) = show n ++ " " ++ putNotes ns
@@ -96,14 +99,16 @@ putNotes (n:ns) = show n ++ " " ++ putNotes ns
 -- putSteps (n:ns) = show n ++ " " ++ putSteps ns
 
 -- NOTE: ?? What to do with this ??
-getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> (Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]) -> [String]
+getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int
+              -> (Notes -> (SingleNote -> Notes) -> SingleNote
+              -> Int -> [Steps]) -> [String]
 getStrings tuning scale root fret fingering = do
                                      let ns     = fingering tuning scale root fret
                                      let nt     = zip tuning ns
                                      let bds    = buildDisplay nt
                                      let maxLen = maximum $ map length bds
                                      b <- bds
-                                     return (b ++ genSpaces maxLen b ++ "--|")
+                                     return ("||-- " ++ b ++ genSpaces maxLen b ++ " --|")
 
 fretHeader :: SingleNote -> Int -> IO()
 fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
