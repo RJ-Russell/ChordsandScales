@@ -46,16 +46,16 @@ openE    = [E, B, Ab, E, B, E]
 ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
-chromaticScale :: SingleNote -> Notes
-chromaticScale root = take numFrets (iterate halfStep root)
+chromaticScale :: Int -> SingleNote -> Notes
+chromaticScale maxFrets root = take maxFrets (iterate halfStep root)
 
 -- ===============================================
 
 -- Generates list of indices where the notes in the scale are located on the
 -- fretboard for a given string tuned to a specific note.
-positions :: Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
-positions tuning scale root = [getPos (scale root) | t <- tuning,
-                                let fretPosition s = elemIndices s (chromaticScale t),
+positions :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
+positions maxFrets tuning scale root = [getPos (scale root) | t <- tuning,
+                                let fretPosition s = elemIndices s (chromaticScale maxFrets t),
                                 let getPos ss = concat [fretPosition s | s <- ss]]
 
 -- filterDifference :: Steps -> Steps
@@ -65,14 +65,14 @@ positions tuning scale root = [getPos (scale root) | t <- tuning,
 --                     where getDifference xs = abs $ foldr (-) 0 xs
 
 -- Generates a list of Steps for each note in the scale per string.
-scaleFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-scaleFingering tuning scale root pos = map (nub . sort . filter (pos<=))
-                                         $ positions tuning scale root
+scaleFingering :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
+scaleFingering maxFrets tuning scale root pos = map (nub . sort . filter (pos<=))
+                                         $ positions maxFrets tuning scale root
 
 -- Generates a list of Steps for each note in the chord per string.
-chordFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-chordFingering tuning scale root pos = map (filterDifference . take 1 . sort . filter (pos<=))
-                                       $ positions tuning scale root
+chordFingering :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
+chordFingering maxFrets tuning scale root pos = map (take 1 . sort . filter (pos<=))
+                                       $ positions maxFrets tuning scale root
 
 -- ===============================================
 
@@ -95,44 +95,47 @@ buildDisplay xs = [show (fst x) ++ " ||" ++ showPositions (snd x) | x <- xs]
                                                 | otherwise = "-" ++ show x
                               showPositions (x:xs) = showPositions [x] ++ showPositions xs
 
-getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [String]
-getStrings tuning scale root fret = do
-                                     let ns     = chordFingering tuning scale root fret
+getStrings :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [String]
+getStrings maxFrets tuning scale root fret = do
+                                     let ns     = chordFingering maxFrets tuning scale root fret
                                      let nt     = zip tuning ns
                                      let bds    = buildDisplay nt
                                      let maxLen = maximum $ map length bds
                                      b <- bds
                                      return (b ++ genSpaces maxLen b ++ "-|")
 
-makeString :: Steps -> [String]
-makeString ns = do
-                  fret <- [0..numFrets]
-                  n <- ns
-                  if fret == 0 then return (makeNeck fret n)
-                  else
-                    if n == fret then return "--o--|"
-                    else return "-----|"
-                where makeNeck fret n | fret == n = " |o|"
-                                      | otherwise = " | |"
-
 genSpaces :: Int -> String -> String
 genSpaces maxLen n | (maxLen - length n) == 0 = ""
                    | otherwise = concat $ replicate (maxLen - length n) "-"
 
--- Functions to output guitar things.
-makeGuitar :: Notes -> IO()
-makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
-            where allNotes tuning = [chromaticScale n | n <- tuning]
 
-makeChordTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChordTab tuning scale root fret = fretHeader root fret
-                                      >> mapM_ putStrLn (getStrings tuning scale root fret)
+makeFrets :: Int -> Steps -> [String]
+makeFrets maxFrets ns = do
+                         fret <- [0..maxFrets]
+                         n <- ns
+                         if fret == 0 then return (makeNeck fret n)
+                         else
+                           if n == fret then return "--o--|"
+                           else return "-----|"
+                        where makeNeck fret n | fret == n = " |o|"
+                                              | otherwise = " | |"
+
+-- Functions to output guitar things.
+makeGuitar :: Int -> Notes -> IO()
+makeGuitar maxFrets tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
+            where allNotes tuning = [chromaticScale maxFrets n | n <- tuning]
+
+makeChordTab :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChordTab maxFrets tuning scale root fret = fretHeader root fret
+                                      >> mapM_ putStrLn (getStrings maxFrets tuning scale root fret)
               where fretHeader :: SingleNote -> Int -> IO()
                     fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
 
-makeChordFrets :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChordFrets tuning scale root fret = putStrLn $ unlines $ map concat getFrets
+makeChordFrets :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChordFrets maxFrets tuning scale root fret = putStrLn $ unlines $ map concat getFrets
       where getFrets = do
-                        let ns = chordFingering tuning scale root fret
+                        let ns = chordFingering maxFrets tuning scale root fret
                         n <- ns
-                        return (makeString n)
+                        let mfs = makeFrets maxFrets n
+                        let nt = zip tuning mfs
+                        return (makeFrets maxFrets n)
