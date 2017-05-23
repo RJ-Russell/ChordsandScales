@@ -9,7 +9,7 @@ type Steps = [Int]
 
 -- There are 0..24 Frets on this guitar.
 numFrets :: Int
-numFrets = 25
+numFrets = 6
 
 -- Gets the successor of the SingleNote passed in. Wraps around so that
 -- the datatype SingleNote is circular.
@@ -58,11 +58,11 @@ positions tuning scale root = [getPos (scale root) | t <- tuning,
                                 let fretPosition s = elemIndices s (chromaticScale t),
                                 let getPos ss = concat [fretPosition s | s <- ss]]
 
-filterDifference :: Steps -> Steps
-filterDifference [] = []
-filterDifference xs | getDifference xs <= 2 = xs
-                    | otherwise = [minimum xs]
-                    where getDifference xs = abs $ foldr (-) 0 xs
+-- filterDifference :: Steps -> Steps
+-- filterDifference [] = []
+-- filterDifference xs | getDifference xs <= 2 = xs
+--                     | otherwise = [minimum xs]
+--                     where getDifference xs = abs $ foldr (-) 0 xs
 
 -- Generates a list of Steps for each note in the scale per string.
 scaleFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
@@ -71,7 +71,7 @@ scaleFingering tuning scale root pos = map (nub . sort . filter (pos<=))
 
 -- Generates a list of Steps for each note in the chord per string.
 chordFingering :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-chordFingering tuning scale root pos = map (filterDifference . take 2 . sort . filter (pos<=))
+chordFingering tuning scale root pos = map (filterDifference . take 1 . sort . filter (pos<=))
                                        $ positions tuning scale root
 
 -- ===============================================
@@ -95,8 +95,6 @@ buildDisplay xs = [show (fst x) ++ " ||" ++ showPositions (snd x) | x <- xs]
                                                 | otherwise = "-" ++ show x
                               showPositions (x:xs) = showPositions [x] ++ showPositions xs
 
-
--- NOTE: ?? What to do with this ??
 getStrings :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [String]
 getStrings tuning scale root fret = do
                                      let ns     = chordFingering tuning scale root fret
@@ -105,6 +103,17 @@ getStrings tuning scale root fret = do
                                      let maxLen = maximum $ map length bds
                                      b <- bds
                                      return (b ++ genSpaces maxLen b ++ "-|")
+
+makeString :: Steps -> [String]
+makeString ns = do
+                  fret <- [0..numFrets]
+                  n <- ns
+                  if fret == 0 then return (makeNeck fret n)
+                  else
+                    if n == fret then return "--o--|"
+                    else return "-----|"
+                where makeNeck fret n | fret == n = " |o|"
+                                      | otherwise = " | |"
 
 genSpaces :: Int -> String -> String
 genSpaces maxLen n | (maxLen - length n) == 0 = ""
@@ -115,7 +124,15 @@ makeGuitar :: Notes -> IO()
 makeGuitar tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
             where allNotes tuning = [chromaticScale n | n <- tuning]
 
-makeChord :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChord tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (getStrings tuning scale root fret)
+makeChordTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChordTab tuning scale root fret = fretHeader root fret
+                                      >> mapM_ putStrLn (getStrings tuning scale root fret)
               where fretHeader :: SingleNote -> Int -> IO()
                     fretHeader root fret = putStrLn ("\nMin. Fret: " ++ show fret ++ "\nChord: " ++ show root)
+
+makeChordFrets :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeChordFrets tuning scale root fret = putStrLn $ unlines $ map concat getFrets
+      where getFrets = do
+                        let ns = chordFingering tuning scale root fret
+                        n <- ns
+                        return (makeString n)
