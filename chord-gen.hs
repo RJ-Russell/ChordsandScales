@@ -1,5 +1,4 @@
 import Data.List
-import Control.Monad (when)
 
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
     deriving (Show, Enum, Eq)
@@ -16,7 +15,7 @@ numFrets = 6
 -- the datatype SingleNote is circular.
 halfStep :: SingleNote -> SingleNote
 halfStep Ab = A
-halfStep n  = succ n
+halfStep n = succ n
 
 -- Returns a SingleNote that is `n` steps from the SingleNote passed in.
 nSteps :: SingleNote -> Int -> SingleNote
@@ -56,8 +55,8 @@ chromaticScale maxFrets root = take maxFrets (iterate halfStep root)
 -- fretboard for a given string tuned to a specific note.
 positions :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
 positions maxFrets tuning scale root = [getPos (scale root) | t <- tuning,
-                                let fretPosition s = elemIndices s (chromaticScale maxFrets t),
-                                let getPos ss = concat [fretPosition s | s <- ss]]
+    let fretPosition s = elemIndices s (chromaticScale (maxFrets+1) t),
+    let getPos ss = concat [fretPosition s | s <- ss]]
 
 -- filterDifference :: Steps -> Steps
 -- filterDifference [] = []
@@ -67,13 +66,13 @@ positions maxFrets tuning scale root = [getPos (scale root) | t <- tuning,
 
 -- Generates a list of Steps for each note in the scale per string.
 scaleFingering :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-scaleFingering maxFrets tuning scale root pos = map (nub . sort . filter (pos<=))
-                                         $ positions maxFrets tuning scale root
+scaleFingering maxFrets tuning scale root pos =
+    map (nub . sort . filter (pos<=)) $ positions maxFrets tuning scale root
 
 -- Generates a list of Steps for each note in the chord per string.
-chordFingering :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-chordFingering maxFrets tuning scale root pos = map (take 1 . sort . filter (pos<=))
-                                       $ positions maxFrets tuning scale root
+chordFingering :: Args -> [Steps]
+chordFingering (Args maxFret tuning scale root fret) =
+    map (take 1 . sort . filter (fret<=)) $ positions maxFret tuning scale root
 
 -- ===============================================
 
@@ -83,55 +82,71 @@ putNotes :: Notes -> String
 putNotes [n] = show n
 putNotes (n:ns) = show n ++ " " ++ putNotes ns
 
--- putSteps :: Steps -> String
--- putSteps [] = "x"
--- putSteps [n] = show n
--- putSteps (n:ns) = show n ++ " " ++ putSteps ns
+putSteps :: Steps -> String
+putSteps [] = "x"
+putSteps [n] = show n
+putSteps (n:ns) = show n ++ " " ++ putSteps ns
 
--- Builds an array of single ASCII string.
+-- =========================================================
+-- Build Tab Diagram
 buildTabStrings :: [(SingleNote, Steps)] -> [String]
 buildTabStrings xs = [formatTuning (fst x) ++ "||" ++ showPositions (snd x) | x <- xs]
-                        where showPositions []              = "--x"
-                              showPositions [x] | x < 10    = "- " ++ show x
-                                                | otherwise = "-" ++ show x
-                              showPositions (x:xs)          = showPositions [x] ++ showPositions xs
-                              formatTuning n | 'b' `elem` show n = show n ++ " "
-                                             | otherwise           = show n ++ "  "
+    where showPositions [] = "--x"
+          showPositions [x] = if x < 10 then "- " ++ show x
+                              else "-" ++ show x
+          showPositions (x:xs) = showPositions [x] ++ showPositions xs
+          formatTuning n = if 'b' `elem` show n  then show n ++ " "
+                           else show n ++ "  "
 
-buildTab :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [String]
-buildTab maxFrets tuning scale root fret = do
-                                     let ns     = chordFingering maxFrets tuning scale root fret
-                                     let nt     = zip tuning ns
-                                     let bds    = buildTabStrings nt
-                                     let maxLen = maximum $ map length bds
-                                     b <- bds
-                                     return (b ++ genSpaces maxLen b ++ "-|")
-                   where genSpaces maxLen n | (maxLen - length n) == 0 = ""
-                                            | otherwise = concat $ replicate (maxLen - length n) "-"
+buildTab :: Args -> [String]
+buildTab args@(Args maxFret tuning scale root fret) = do
+    let ns = chordFingering args
+    let nt = zip tuning ns
+    let bds = buildTabStrings nt
+    let maxLen = maximum $ map length bds
+    b <- bds
+    return (b ++ genSpaces maxLen b ++ "-|")
+    where
+        genSpaces maxLen n
+            | (maxLen - length n) == 0 = ""
+            | otherwise = concat $ replicate (maxLen - length n) "-"
 
-
+-- =========================================================
+-- Build Fret Diagram
 buildFretStrings :: Int -> [(SingleNote, Steps)] -> [String]
-buildFretStrings maxFret nt = [formatTuning (fst ns) ++ (concat $ helpmeee maxFret (snd ns)) | ns <- nt]
-                        where makeNeck fret n ns | fret == n = "|o|"
-                                                 | otherwise = "| |"
-                              makeStrings fret n ns | fret == n = "--o--|"
-                                                    | otherwise = "-----|"
-                              helpmeee maxFrets ns = if null ns then
-                                                      return ("|x|" ++ concat (replicate maxFrets "-----|"))
-                                                     else do
-                                                            fret <- [0..maxFrets]
-                                                            n <- ns
-                                                            if fret == 0 then return (makeNeck fret n ns)
-                                                            else return (makeStrings fret n ns)
-                              formatTuning n | 'b' `elem` show n = show n ++ " "
-                                             | otherwise = show n ++ "  "
+buildFretStrings maxFret nt =
+    [formatTuning (fst ns) ++ concat (makeFrets maxFret (snd ns)) | ns <- nt]
 
-buildFrets :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [String]
-buildFrets maxFrets tuning scale root fret  = do
-                                               let ns = chordFingering maxFrets tuning scale root fret
-                                               let nt = zip tuning ns
-                                               let bfs = buildFretStrings maxFrets nt
-                                               bfs
+makeFrets maxFrets [] = ["|x|" ++ concat (replicate maxFret "-----|")]
+makeFrets maxFret ns = do
+    fret <- [0..maxFret]
+    n <- ns
+    if fret == 0 then return (makeNeck fret n)
+    else return (makeStrings fret n)
+
+makeNeck fret n = if fret == n then "|o|"
+                     else "| |"
+
+makeStrings fret n = if fret == n then "--o--|"
+                        else "-----|"
+
+formatTuning n = if 'b' `elem` show n then show n ++ " "
+     else show n ++ "  "
+
+buildFrets :: Args -> [String]
+buildFrets args@(Args maxFret tuning scale root fret)  = do
+    let ns = chordFingering args
+    let nt = zip tuning ns
+    buildFretStrings maxFret nt
+
+-- =========================================================
+-- Data type to pass common args around as one unit.
+data Args = Args { maxFret :: Int,
+                   tuning :: Notes,
+                   scale :: SingleNote -> Notes,
+                   root :: SingleNote,
+                   fret :: Int
+                 }
 
 fretHeader :: SingleNote -> Int -> IO()
 fretHeader root fret = putStrLn ("\nChord: " ++ show root ++ "\nMin. Fret: " ++ show fret)
@@ -141,9 +156,10 @@ makeGuitar :: Int -> Notes -> IO()
 makeGuitar maxFrets tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
             where allNotes tuning = [chromaticScale maxFrets n | n <- tuning]
 
-makeChordTab :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChordTab maxFrets tuning scale root fret = fretHeader root fret
-                                                >> mapM_ putStrLn (buildTab maxFrets tuning scale root fret)
+makeChordTab :: Args -> IO()
+makeChordTab args@(Args maxFrets tuning scale root fret) =
+    fretHeader root fret >> mapM_ putStrLn (buildTab args)
 
-makeChordFrets :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeChordFrets maxFrets tuning scale root fret = fretHeader root fret >> mapM_ putStrLn (buildFrets maxFrets tuning scale root fret)
+makeChordFrets :: Args -> IO()
+makeChordFrets args@(Args maxFret tuning scale root fret) =
+    fretHeader root fret >> mapM_ putStrLn (buildFrets args)
