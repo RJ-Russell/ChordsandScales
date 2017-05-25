@@ -163,3 +163,9 @@ makeChordTab args@(Args maxFrets tuning scale root fret) =
 makeChordFrets :: Args -> IO()
 makeChordFrets args@(Args maxFret tuning scale root fret) =
     fretHeader root fret >> mapM_ putStrLn (buildFrets args) >> fretFooter maxFret
+
+-- take a min and max value for the fret display.
+-- maybe a UI to choose fret or tab displays?
+-- maybe different data type for fret/tab?
+-- figure out using `take` for fret/tab. (Tab takes 1, Fret it doesn't matter)
+-- ** Fix the fret numbering issue with double digits
