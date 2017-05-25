@@ -148,8 +148,14 @@ data Args = Args { maxFret :: Int,
 fretHeader :: SingleNote -> Int -> IO()
 fretHeader root fret = putStrLn ("\nChord: " ++ show root ++ "\nMin. Fret: " ++ show fret)
 
-fretFooter maxFrets =
-    putStrLn ("   0   " ++ intercalate "     " (map show [1..maxFrets]))
+fretFooter :: Int -> IO()
+fretFooter maxFret = do
+    let prt = partition (10>) [1..maxFret]
+    putStrLn ("    0   " ++ intercalate "     " (map show (fst prt))
+             ++ "     " ++ intercalate "    " (map show (snd prt)))
+
+
+--    putStrLn ("     0   " ++ intercalate "     " (map show [1..maxFrets]))
 
 -- Functions to output guitar things.
 makeGuitar :: Int -> Notes -> IO()
@@ -168,4 +174,3 @@ makeChordFrets args@(Args maxFret tuning scale root fret) =
 -- maybe a UI to choose fret or tab displays?
 -- maybe different data type for fret/tab?
 -- figure out using `take` for fret/tab. (Tab takes 1, Fret it doesn't matter)
--- ** Fix the fret numbering issue with double digits
