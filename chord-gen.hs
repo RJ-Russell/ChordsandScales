@@ -72,7 +72,7 @@ scaleFingering maxFrets tuning scale root pos =
 -- Generates a list of Steps for each note in the chord per string.
 chordFingering :: Args -> [Steps]
 chordFingering (Args maxFret tuning scale root fret) =
-    map (take 1 . sort . filter (fret<=)) $ positions maxFret tuning scale root
+    map (sort . filter (fret<=)) $ positions maxFret tuning scale root
 
 -- ===============================================
 
@@ -117,18 +117,15 @@ buildFretStrings :: Int -> [(SingleNote, Steps)] -> [String]
 buildFretStrings maxFret nt =
     [formatTuning (fst ns) ++ concat (makeFrets maxFret (snd ns)) | ns <- nt]
 
-makeFrets maxFrets [] = ["|x|" ++ concat (replicate maxFret "-----|")]
-makeFrets maxFret ns = do
-    fret <- [0..maxFret]
-    n <- ns
-    if fret == 0 then return (makeNeck fret n)
-    else return (makeStrings fret n)
+makeFrets maxFret [] = ["|x|" ++ concat (replicate maxFret "-----|")]
+makeFrets maxFret (n:ns) =
+    if n == 0 then return ("|o|" ++ makeStrings maxFret ns)
+    else return ("| |" ++ makeStrings maxFret (n:ns))
 
-makeNeck fret n = if fret == n then "|o|"
-                     else "| |"
-
-makeStrings fret n = if fret == n then "--o--|"
-                        else "-----|"
+makeStrings maxFret ns = do
+    fret <- [1..maxFret]
+    if fret `elem` ns then "--o--|"
+    else "-----|"
 
 formatTuning n = if 'b' `elem` show n then show n ++ " "
      else show n ++ "  "
@@ -151,6 +148,9 @@ data Args = Args { maxFret :: Int,
 fretHeader :: SingleNote -> Int -> IO()
 fretHeader root fret = putStrLn ("\nChord: " ++ show root ++ "\nMin. Fret: " ++ show fret)
 
+fretFooter maxFrets =
+    putStrLn ("   0   " ++ intercalate "     " (map show [1..maxFrets]))
+
 -- Functions to output guitar things.
 makeGuitar :: Int -> Notes -> IO()
 makeGuitar maxFrets tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
@@ -162,4 +162,4 @@ makeChordTab args@(Args maxFrets tuning scale root fret) =
 
 makeChordFrets :: Args -> IO()
 makeChordFrets args@(Args maxFret tuning scale root fret) =
-    fretHeader root fret >> mapM_ putStrLn (buildFrets args)
+    fretHeader root fret >> mapM_ putStrLn (buildFrets args) >> fretFooter maxFret
