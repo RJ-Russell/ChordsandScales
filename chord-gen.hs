@@ -132,7 +132,7 @@ makeStringNotes str root maxFret ns = do
     fret <- [1..maxFret]
     if fret `elem` ns then
         if root `elem` keysWithSharps then ("--" ++ flatSharp (nSteps str fret) ++ "-|")
-        else ("--" ++ formatNote (nSteps str fret) ++ "--|")
+        else ("--" ++ formatNote (nSteps str fret) ++ "-|")
     else "-----|"
 
 formatTuning n = if 'b' `elem` show n then show n ++ " "
