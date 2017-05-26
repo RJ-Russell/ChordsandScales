@@ -47,36 +47,26 @@ ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
 chromaticScale :: Int -> SingleNote -> Notes
-chromaticScale maxFrets root = take maxFrets (iterate halfStep root)
+chromaticScale maxFret root = take maxFret (iterate halfStep root)
 
 -- ===============================================
 
 -- Generates list of indices where the notes in the scale are located on the
 -- fretboard for a given string tuned to a specific note.
 positions :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
-positions maxFrets tuning scale root = [getPos (scale root) | t <- tuning,
-    let fretPosition s = elemIndices s (chromaticScale (maxFrets+1) t),
+positions maxFret tuning scale root = [getPos (scale root) | t <- tuning,
+    let fretPosition s = elemIndices s (chromaticScale (maxFret+1) t),
     let getPos ss = concat [fretPosition s | s <- ss]]
 
--- filterDifference :: Steps -> Steps
--- filterDifference [] = []
--- filterDifference xs | getDifference xs <= 2 = xs
---                     | otherwise = [minimum xs]
---                     where getDifference xs = abs $ foldr (-) 0 xs
-
--- Generates a list of Steps for each note in the scale per string.
-scaleFingering :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> [Steps]
-scaleFingering maxFrets tuning scale root pos =
-    map (nub . sort . filter (pos<=)) $ positions maxFrets tuning scale root
-
 -- Generates a list of Steps for each note in the chord per string.
-fingering :: Args -> [Steps]
-fingering (Args maxFret tuning scale root fret) =
+-- NOTE: Maybe add nub to this? Doesn't seem to matter with the current algorithm.
+fingering :: Args -> Int -> [Steps]
+fingering (Args tuning scale root fret) maxFret =
     map (sort . filter (fret<=)) $ positions maxFret tuning scale root
 
-fingering1 :: Args -> [Steps]
-fingering1 args =
-    map (take 1) $ fingering args
+fingering1 :: Args -> Int -> [Steps]
+fingering1 args maxFret =
+    map (take 1) $ fingering args maxFret
 -- ===============================================
 
 -- Functions for Output
@@ -101,9 +91,8 @@ buildTabStrings xs = [formatTuning (fst x) ++ "||" ++ showPositions (snd x) | x 
           formatTuning n = if 'b' `elem` show n  then show n ++ " "
                            else show n ++ "  "
 
-buildTab :: Args -> [String]
-buildTab args@(Args maxFret tuning scale root fret) = do
-    let ns = fingering args
+buildTab :: Args -> Int -> [Steps] -> [String]
+buildTab args@(Args tuning scale root fret) maxFret ns = do
     let nt = zip tuning ns
     let bds = buildTabStrings nt
     let maxLen = maximum $ map length bds
@@ -133,16 +122,14 @@ makeStrings maxFret ns = do
 formatTuning n = if 'b' `elem` show n then show n ++ " "
      else show n ++ "  "
 
-buildFrets :: Args -> [String]
-buildFrets args@(Args maxFret tuning scale root fret)  = do
-    let ns = fingering args
+buildFrets :: Args -> Int -> [Steps] -> [String]
+buildFrets args@(Args tuning scale root fret) maxFret ns = do
     let nt = zip tuning ns
     buildFretStrings maxFret nt
 
 -- =========================================================
 -- Data type to pass common args around as one unit.
-data Args = Args { maxFret :: Int,
-                   tuning :: Notes,
+data Args = Args { tuning :: Notes,
                    scale :: SingleNote -> Notes,
                    root :: SingleNote,
                    fret :: Int
@@ -162,16 +149,25 @@ fretFooter maxFret = do
 
 -- Functions to output guitar things.
 makeGuitar :: Int -> Notes -> IO()
-makeGuitar maxFrets tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
-            where allNotes tuning = [chromaticScale maxFrets n | n <- tuning]
+makeGuitar maxFret tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
+            where allNotes tuning = [chromaticScale maxFret n | n <- tuning]
 
 makeChordTab :: Args -> IO()
-makeChordTab args@(Args maxFrets tuning scale root fret) =
-    fretHeader root fret >> mapM_ putStrLn (buildTab args)
+makeChordTab args@(Args tuning scale root fret) = do
+    let maxFret = fret + 4
+    let ns = fingering1 args maxFret
+    fretHeader root fret >> mapM_ putStrLn (buildTab args maxFret ns)
 
-makeChordFrets :: Args -> IO()
-makeChordFrets args@(Args maxFret tuning scale root fret) =
-    fretHeader root fret >> mapM_ putStrLn (buildFrets args) >> fretFooter maxFret
+makeChordAll :: Args -> Int -> IO()
+makeChordAll args@(Args tuning scale root fret) maxFret = do
+    let ns = fingering args maxFret
+    fretHeader root fret >> mapM_ putStrLn (buildFrets args maxFret ns) >> fretFooter maxFret
+
+makeChordOne :: Args -> Int -> IO()
+makeChordOne args maxFret = do
+    let ns = fingering1 args maxFret
+    fretHeader (root args)(fret args)
+        >> mapM_ putStrLn (buildFrets args maxFret ns) >> fretFooter maxFret
 
 -- take a min and max value for the fret display.
 -- maybe a UI to choose fret or tab displays?
