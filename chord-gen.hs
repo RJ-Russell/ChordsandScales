@@ -70,10 +70,13 @@ scaleFingering maxFrets tuning scale root pos =
     map (nub . sort . filter (pos<=)) $ positions maxFrets tuning scale root
 
 -- Generates a list of Steps for each note in the chord per string.
-chordFingering :: Args -> [Steps]
-chordFingering (Args maxFret tuning scale root fret) =
+fingering :: Args -> [Steps]
+fingering (Args maxFret tuning scale root fret) =
     map (sort . filter (fret<=)) $ positions maxFret tuning scale root
 
+fingering1 :: Args -> [Steps]
+fingering1 args =
+    map (take 1) $ fingering args
 -- ===============================================
 
 -- Functions for Output
@@ -100,7 +103,7 @@ buildTabStrings xs = [formatTuning (fst x) ++ "||" ++ showPositions (snd x) | x 
 
 buildTab :: Args -> [String]
 buildTab args@(Args maxFret tuning scale root fret) = do
-    let ns = chordFingering args
+    let ns = fingering args
     let nt = zip tuning ns
     let bds = buildTabStrings nt
     let maxLen = maximum $ map length bds
@@ -132,7 +135,7 @@ formatTuning n = if 'b' `elem` show n then show n ++ " "
 
 buildFrets :: Args -> [String]
 buildFrets args@(Args maxFret tuning scale root fret)  = do
-    let ns = chordFingering args
+    let ns = fingering args
     let nt = zip tuning ns
     buildFretStrings maxFret nt
 
