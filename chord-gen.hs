@@ -3,13 +3,12 @@ import Data.List
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
     deriving (Show, Enum, Eq)
 
+notesWithSharps :: Notes
+notesWithSharps = [G, D, A, E, B]
+
 -- Give more meaningful names.
 type Notes = [SingleNote]
 type Steps = [Int]
-
--- There are 0..24 Frets on this guitar.
-numFrets :: Int
-numFrets = 6
 
 -- Gets the successor of the SingleNote passed in. Wraps around so that
 -- the datatype SingleNote is circular.
@@ -67,17 +66,22 @@ fingering (Args tuning scale root fret) maxFret =
 fingering1 :: Args -> Int -> [Steps]
 fingering1 args maxFret =
     map (take 1) $ fingering args maxFret
+
 -- ===============================================
 
 -- Functions for Output
 -- ===============================================
+flatSharp :: SingleNote -> String
+flatSharp n = if 'b' `elem` (show n) then (head (show n) : "#")
+              else (show n)
+
 putNotes :: Notes -> String
+putNotes [] = "x"
 putNotes ns = unwords $ map show ns
 
 putSteps :: Steps -> String
 putSteps [] = "x"
-putSteps [n] = show n
-putSteps (n:ns) = show n ++ " " ++ putSteps ns
+putSteps ns = unwords $ map show ns
 
 -- =========================================================
 -- Build Tab Diagram
