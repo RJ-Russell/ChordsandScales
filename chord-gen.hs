@@ -72,8 +72,7 @@ fingering1 args maxFret =
 -- Functions for Output
 -- ===============================================
 putNotes :: Notes -> String
-putNotes [n] = show n
-putNotes (n:ns) = show n ++ " " ++ putNotes ns
+putNotes ns = unwords $ map show ns
 
 putSteps :: Steps -> String
 putSteps [] = "x"
@@ -144,13 +143,10 @@ fretFooter maxFret = do
     putStrLn ("    0   " ++ intercalate "     " (map show (fst prt))
              ++ "     " ++ intercalate "    " (map show (snd prt)))
 
-
---    putStrLn ("     0   " ++ intercalate "     " (map show [1..maxFrets]))
-
 -- Functions to output guitar things.
 makeGuitar :: Int -> Notes -> IO()
-makeGuitar maxFret tuning = putStrLn $ unlines $ map putNotes (allNotes tuning)
-            where allNotes tuning = [chromaticScale maxFret n | n <- tuning]
+makeGuitar maxFret tuning = putStrLn $ unlines $ map putNotes allNotes
+            where allNotes = [chromaticScale maxFret n | n <- tuning]
 
 makeChordTab :: Args -> IO()
 makeChordTab args@(Args tuning scale root fret) = do
@@ -163,13 +159,14 @@ makeChordAll args@(Args tuning scale root fret) maxFret = do
     let ns = fingering args maxFret
     fretHeader root fret >> mapM_ putStrLn (buildFrets args maxFret ns) >> fretFooter maxFret
 
-makeChordOne :: Args -> Int -> IO()
-makeChordOne args maxFret = do
+makeChordOne :: Args -> IO()
+makeChordOne args = do
+    let maxFret = fret args + 4
     let ns = fingering1 args maxFret
     fretHeader (root args)(fret args)
         >> mapM_ putStrLn (buildFrets args maxFret ns) >> fretFooter maxFret
 
 -- take a min and max value for the fret display.
+-- Factor out `fret` from data Args, pass where needed.
+
 -- maybe a UI to choose fret or tab displays?
--- maybe different data type for fret/tab?
--- figure out using `take` for fret/tab. (Tab takes 1, Fret it doesn't matter)
