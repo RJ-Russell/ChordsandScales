@@ -3,8 +3,8 @@ import Data.List
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
     deriving (Show, Enum, Eq)
 
-notesWithSharps :: Notes
-notesWithSharps = [G, D, A, E, B]
+keysWithSharps :: Notes
+keysWithSharps = [A, B, D, E, G]
 
 -- Give more meaningful names.
 type Notes = [SingleNote]
@@ -12,13 +12,17 @@ type Steps = [Int]
 
 -- Gets the successor of the SingleNote passed in. Wraps around so that
 -- the datatype SingleNote is circular.
-halfStep :: SingleNote -> SingleNote
-halfStep Ab = A
-halfStep n = succ n
+halfStepU :: SingleNote -> SingleNote
+halfStepU Ab = A
+halfStepU n = succ n
+
+halfStepD :: SingleNote -> SingleNote
+halfStepD A = Ab
+halfStepD n = pred n
 
 -- Returns a SingleNote that is `n` steps from the SingleNote passed in.
 nSteps :: SingleNote -> Int -> SingleNote
-nSteps n x = iterate halfStep n !! x
+nSteps n x = iterate halfStepU n !! x
 
 -- ====== SCALES =================================
 -- Generates a scale of SingleNotes, using the SingleNote argument
@@ -46,7 +50,7 @@ ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
 chromaticScale :: Int -> SingleNote -> Notes
-chromaticScale maxFret root = take maxFret (iterate halfStep root)
+chromaticScale maxFret root = take maxFret (iterate halfStepU root)
 
 -- ===============================================
 
@@ -72,8 +76,8 @@ fingering1 args maxFret =
 -- Functions for Output
 -- ===============================================
 flatSharp :: SingleNote -> String
-flatSharp n = if 'b' `elem` (show n) then (head (show n) : "#")
-              else (show n)
+flatSharp n = if 'b' `elem` (show n) then (head (show (halfStepD n)) : "#")
+              else (show n) ++ " "
 
 putNotes :: Notes -> String
 putNotes [] = "x"
@@ -86,13 +90,14 @@ putSteps ns = unwords $ map show ns
 -- =========================================================
 -- Build Tab Diagram
 buildTabStrings :: [(SingleNote, Steps)] -> [String]
-buildTabStrings xs = [formatTuning (fst x) ++ "||" ++ showPositions (snd x) | x <- xs]
+buildTabStrings xs = [formatNote (fst x) ++ "||" ++ showPositions (snd x) | x <- xs]
     where showPositions [] = "--x"
           showPositions [x] = if x < 10 then "- " ++ show x
                               else "-" ++ show x
           showPositions (x:xs) = showPositions [x] ++ showPositions xs
-          formatTuning n = if 'b' `elem` show n  then show n ++ " "
-                           else show n ++ "  "
+
+formatNote n = if 'b' `elem` show n  then show n
+                 else show n ++ " "
 
 buildTab :: Args -> Int -> [Steps] -> [String]
 buildTab args@(Args tuning scale root fret) maxFret ns = do
@@ -108,18 +113,26 @@ buildTab args@(Args tuning scale root fret) maxFret ns = do
 
 -- =========================================================
 -- Build Fret Diagram
-buildFretStrings :: Int -> [(SingleNote, Steps)] -> [String]
-buildFretStrings maxFret nt =
-    [formatTuning (fst ns) ++ concat (makeFrets maxFret (snd ns)) | ns <- nt]
+buildFretStrings :: SingleNote -> Int -> [(SingleNote, Steps)] -> [String]
+buildFretStrings root maxFret nt =
+    [formatTuning (fst ns) ++ concat (makeFrets (fst ns) root maxFret (snd ns)) | ns <- nt]
 
-makeFrets maxFret [] = ["|x|" ++ concat (replicate maxFret "-----|")]
-makeFrets maxFret (n:ns) =
-    if n == 0 then return ("|o|" ++ makeStrings maxFret ns)
-    else return ("| |" ++ makeStrings maxFret (n:ns))
+makeFrets :: SingleNote -> SingleNote -> Int -> Steps -> [String]
+makeFrets str root maxFret [] = ["|x|" ++ concat (replicate maxFret "-----|")]
+makeFrets str root maxFret (n:ns) =
+    if n == 0 then return ("|o|" ++ makeStringNotes str root maxFret ns)
+    else return ("| |" ++ makeStringNotes str root maxFret (n:ns))
 
 makeStrings maxFret ns = do
     fret <- [1..maxFret]
     if fret `elem` ns then "--o--|"
+    else "-----|"
+
+makeStringNotes str root maxFret ns = do
+    fret <- [1..maxFret]
+    if fret `elem` ns then
+        if root `elem` keysWithSharps then ("--" ++ flatSharp (nSteps str fret) ++ "-|")
+        else ("--" ++ formatNote (nSteps str fret) ++ "--|")
     else "-----|"
 
 formatTuning n = if 'b' `elem` show n then show n ++ " "
@@ -128,7 +141,7 @@ formatTuning n = if 'b' `elem` show n then show n ++ " "
 buildFrets :: Args -> Int -> [Steps] -> [String]
 buildFrets args@(Args tuning scale root fret) maxFret ns = do
     let nt = zip tuning ns
-    buildFretStrings maxFret nt
+    buildFretStrings root maxFret nt
 
 -- =========================================================
 -- Data type to pass common args around as one unit.
