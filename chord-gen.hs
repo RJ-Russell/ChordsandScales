@@ -30,8 +30,10 @@ nSteps n x = iterate halfStepU n !! x
 genScale :: SingleNote -> Steps -> Notes
 genScale n ss = [nSteps n s | s <- ss]
 
-ionian, majTriad, minTriad, maj7th, min7th, sixthAdd9th, sus4th :: SingleNote -> Notes
-ionian root      = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
+diatonic, pentatonic, majTriad, minTriad, maj7th, min7th, sixthAdd9th, sus4th :: SingleNote -> Notes
+diatonic root      = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
+pentatonic root  = genScale root [0, 2, 4, 7, 9, 12]
+
 majTriad root    = genScale root [7, 4, 0]
 minTriad root    = genScale root [7, 3, 0]
 maj7th root      = genScale root [10, 7, 4, 0]
@@ -50,7 +52,7 @@ ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
 chromaticScale :: Int -> SingleNote -> Notes
-chromaticScale maxFret root = take maxFret (iterate halfStepU root)
+chromaticScale maxFret root = take (maxFret + 1) (iterate halfStepU root)
 
 -- ===============================================
 
@@ -58,7 +60,7 @@ chromaticScale maxFret root = take maxFret (iterate halfStepU root)
 -- fretboard for a given string tuned to a specific note.
 positions :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
 positions maxFret tuning scale root = [getPos (scale root) | t <- tuning,
-    let fretPosition s = elemIndices s (chromaticScale (maxFret+1) t),
+    let fretPosition s = elemIndices s (chromaticScale maxFret t),
     let getPos ss = concat [fretPosition s | s <- ss]]
 
 -- Generates a list of Steps for each note in the chord per string.
@@ -77,7 +79,7 @@ fingering1 args maxFret =
 -- ===============================================
 flatSharp :: SingleNote -> String
 flatSharp n = if 'b' `elem` (show n) then (head (show (halfStepD n)) : "#")
-              else (show n) ++ " "
+              else (show n) ++ "-"
 
 putNotes :: Notes -> String
 putNotes [] = "x"
