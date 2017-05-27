@@ -185,13 +185,13 @@ data Args = Args {
 -- =========================================================
 -- Helper functions to display the header and footer of the diagrams.
 -- =========================================================
-fretHeader :: SingleNote -> Int -> IO()
-fretHeader root fret = putStrLn ("\nRoot: " ++ show root ++ "\nMin. Fret: " ++ show fret)
+fretHeader :: SingleNote -> Int -> String
+fretHeader root fret = "\nRoot: " ++ show root ++ "\nMin. Fret: " ++ show fret
 
-fretFooter :: Int -> IO()
+fretFooter :: Int -> [String]
 fretFooter maxFret = do
     let prt = partition (10>) [1..maxFret]
-    putStrLn ("    0   " ++ intercalate "     " (map show (fst prt))
+    return ("    0   " ++ intercalate "     " (map show (fst prt))
              ++ "     " ++ intercalate "    " (map show (snd prt)))
 
 -- =========================================================
@@ -200,8 +200,8 @@ fretFooter maxFret = do
 -- Displays chromatic scale for each of the strings based on the tuning.
 makeGuitar :: Notes -> IO()
 makeGuitar tuning = do
-            let maxFret = 15
-            putStrLn $ unlines $ map putNotes (allNotes maxFret)
+            let maxFret = 12
+            putStrLn $ "\n" ++ unlines (map putNotes (allNotes maxFret))
             where allNotes maxFret = [chromaticScale maxFret n | n <- tuning]
 
 -- Displays a simple tab for a guitar chord with given parameters.
@@ -209,39 +209,45 @@ makeTab :: Args -> IO()
 makeTab args@(Args tuning scale root fret) = do
     let maxFret = fret + 4
     let ns = fingering1 args maxFret
-    fretHeader root fret >> mapM_ putStrLn (buildTab args maxFret ns)
+    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab args maxFret ns)
 
 -- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
 makeNotesAll :: Args -> IO()
 makeNotesAll args@(Args tuning scale root fret) = do
     let maxFret = 16
     let ns = fingering args maxFret
-    fretHeader root fret >> mapM_ putStrLn (buildFretNotes args maxFret ns) >> fretFooter maxFret
+    putStrLn (fretHeader root fret)
+        >> mapM_ putStrLn (buildFretNotes args maxFret ns)
+        >> putStrLn (unlines (fretFooter maxFret))
 
--- Displays notes for one position for a chord/scale based on the given parameters.
+-- -- Displays notes for one position for a chord/scale based on the given parameters.
 makeNotesOne :: Args -> IO()
-makeNotesOne args = do
-    let maxFret = fret args + 4
+makeNotesOne args@(Args tuning scale root fret) = do
+    let maxFret = fret + 4
     let ns = fingering1 args maxFret
-    fretHeader (root args)(fret args)
-        >> mapM_ putStrLn (buildFretNotes args maxFret ns) >> fretFooter maxFret
+    putStrLn (fretHeader root fret)
+        >> mapM_ putStrLn (buildFretNotes args maxFret ns)
+        >> putStrLn (unlines (fretFooter maxFret))
 
--- Displays all symbols for all the positions of a chord/scale,
--- from the fret passed in to the 16th fret.
+-- -- Displays all symbols for all the positions of a chord/scale,
+-- -- from the fret passed in to the 16th fret.
 makeSymbolsAll :: Args -> IO()
 makeSymbolsAll args@(Args tuning scale root fret) = do
     let maxFret = 16
     let ns = fingering args maxFret
-    fretHeader root fret >> mapM_ putStrLn (buildFretSymbols args maxFret ns) >> fretFooter maxFret
+    putStrLn (fretHeader root fret)
+        >> mapM_ putStrLn (buildFretSymbols args maxFret ns)
+        >> putStrLn (unlines (fretFooter maxFret))
 
 -- Displays symbols for the fingering of one position for a chord/scale
 -- based on the given parameters.
 makeSymbolsOne :: Args -> IO()
-makeSymbolsOne args = do
-    let maxFret = fret args + 4
+makeSymbolsOne args@(Args tuning scale root fret) = do
+    let maxFret = fret + 4
     let ns = fingering1 args maxFret
-    fretHeader (root args)(fret args)
-        >> mapM_ putStrLn (buildFretSymbols args maxFret ns) >> fretFooter maxFret
+    putStrLn (fretHeader root fret)
+        >> mapM_ putStrLn (buildFretSymbols args maxFret ns)
+        >> putStrLn (unlines (fretFooter maxFret))
 
 -- take a min and max value for the fret display.
 -- Factor out `fret` from data Args, pass where needed.
