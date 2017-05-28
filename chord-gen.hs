@@ -56,6 +56,7 @@ dropD    = [E, B, G, D, A, D]
 halfDown = [Eb, Bb, Gb, Db, Ab, Eb]
 fullDown = [D, A, F, C, G, D]
 openE    = [E, B, Ab, E, B, E]
+sevenRock = [E, B, G, D, A, E, B]
 ukulele  = [A, E, C, G]
 
 -- Generates a chromatic scale using the SingleNote passed in as the starting point.
@@ -72,7 +73,6 @@ positions maxFret tuning scale root = [getPos (scale root) | t <- tuning,
     let getPos ss = concat [fretPosition s | s <- ss]]
 
 -- Generates a list of Steps for each note in the chord per string.
--- NOTE: Maybe add nub to this? Doesn't seem to matter at the moment.
 fingering :: Args -> Int -> [Steps]
 fingering (Args tuning scale root fret) maxFret =
     map (sort . filter (fret<=)) $ positions maxFret tuning scale root
