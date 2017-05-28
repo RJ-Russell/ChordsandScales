@@ -103,35 +103,19 @@ formatNote n = if 'b' `elem` show n  then show n
 -- =========================================================
 -- Build Tab Diagram
 -- =========================================================
-buildTab :: Args -> Int -> [Steps] -> [String]
-buildTab args@(Args tuning scale root fret) maxFret ns = do
-    let nt = zip tuning ns
-    let bts = buildTabStrings nt
-    let maxLen = maximum $ map length bts
-    ts <- bts
-    return (ts ++ genSpaces maxLen ts ++ "-|")
+buildTab :: [(SingleNote, Steps)] -> [String]
+buildTab ns = [formatTuning (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- ns]
     where
-        genSpaces maxLen n
-            | (maxLen - length n) == 0 = ""
-            | otherwise = concat $ replicate (maxLen - length n) "-"
-
-buildTabStrings :: [(SingleNote, Steps)] -> [String]
-buildTabStrings ns = [formatTuning (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- ns]
-    where showPositions [] = "--x"
-          showPositions [p] = if p < 10 then "--" ++ show p
-                              else "-" ++ show p
-          showPositions (p:ps) = showPositions [p] ++ showPositions ps
+        showPositions [] = "--x"
+        showPositions [p] = if p < 10 then "--" ++ show p ++ "--|"
+                              else "-" ++ show p ++ "--|"
+        showPositions (p:ps) = showPositions [p] ++ showPositions ps
 
 -- =========================================================
 -- Build Fret Diagram with Symbols
 -- =========================================================
-buildFretSymbols :: Args -> Int -> [Steps] -> [String]
-buildFretSymbols args@(Args tuning scale root fret) maxFret ns = do
-    let nt = zip tuning ns
-    buildStringSymbols maxFret nt
-
-buildStringSymbols :: Int -> [(SingleNote, Steps)] -> [String]
-buildStringSymbols maxFret nt =
+buildFretSymbols :: [(SingleNote, Steps)] -> Int -> [String]
+buildFretSymbols nt maxFret =
     [formatTuning (fst ns) ++ concat (fretSymbols maxFret (snd ns)) | ns <- nt]
 
 fretSymbols :: Int -> Steps -> [String]
@@ -149,13 +133,8 @@ makeStringSymbols maxFret ns = do
 -- =========================================================
 -- Build Fret Diagram with Notes
 -- =========================================================
-buildFretNotes :: Args -> Int -> [Steps] -> [String]
-buildFretNotes args@(Args tuning scale root fret) maxFret ns = do
-    let nt = zip tuning ns
-    buildStringNotes root maxFret nt
-
-buildStringNotes :: SingleNote -> Int -> [(SingleNote, Steps)] -> [String]
-buildStringNotes root maxFret nt =
+buildFretNotes :: SingleNote -> [(SingleNote, Steps)] -> Int -> [String]
+buildFretNotes root nt maxFret =
     [formatTuning (fst ns) ++ concat (fretNotes (fst ns) root maxFret (snd ns)) | ns <- nt]
 
 fretNotes :: SingleNote -> SingleNote -> Int -> Steps -> [String]
@@ -209,25 +188,7 @@ makeTab :: Args -> IO()
 makeTab args@(Args tuning scale root fret) = do
     let maxFret = fret + 4
     let ns = fingering1 args maxFret
-    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab args maxFret ns)
-
--- -- -- Displays notes for one position for a chord/scale based on the given parameters.
-makeNotesOne :: Args -> IO()
-makeNotesOne args@(Args tuning scale root fret) = do
-    let maxFret = fret + 4
-    let ns = fingering1 args maxFret
-    outputResults (fretHeader root fret
-                   : buildFretNotes args maxFret ns
-                   ++ fretFooter maxFret)
-
--- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
-makeNotesAll :: Args -> IO()
-makeNotesAll args@(Args tuning scale root fret) = do
-    let maxFret = 16
-    let ns = fingering args maxFret
-    outputResults (fretHeader root fret
-                   : buildFretNotes args maxFret ns
-                   ++ fretFooter maxFret)
+    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
 
 -- Displays symbols for the fingering of one position for a chord/scale
 -- based on the given parameters.
@@ -235,24 +196,47 @@ makeSymbolsOne :: Args -> IO()
 makeSymbolsOne args@(Args tuning scale root fret) = do
     let maxFret = fret + 4
     let ns = fingering1 args maxFret
-    outputResults (fretHeader root fret
-                   : buildFretSymbols args maxFret ns
+    mapM_ putStrLn (fretHeader root fret
+                   : buildFretSymbols (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- -- -- Displays all symbols for all the positions of a chord/scale,
--- -- -- from the fret passed in to the 16th fret.
+--Displays all symbols for all the positions of a chord/scale,
+-- from the fret passed in to the 16th fret.
 makeSymbolsAll :: Args -> IO()
 makeSymbolsAll args@(Args tuning scale root fret) = do
     let maxFret = 16
     let ns = fingering args maxFret
-    outputResults (fretHeader root fret
-                   : buildFretSymbols args maxFret ns
+    mapM_ putStrLn (fretHeader root fret
+                   : buildFretSymbols (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- Helper to display final results.
-outputResults :: [String] -> IO()
-outputResults = mapM_ putStrLn
+-- -- -- Displays notes for one position for a chord/scale based on the given parameters.
+makeNotesOne :: Args -> IO()
+makeNotesOne args@(Args tuning scale root fret) = do
+    let maxFret = fret + 4
+    let ns = fingering1 args maxFret
+    mapM_ putStrLn (fretHeader root fret
+                   : buildFretNotes root (zip tuning ns) maxFret
+                   ++ fretFooter maxFret)
 
+-- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
+makeNotesAll :: Args -> IO()
+makeNotesAll args@(Args tuning scale root fret) = do
+    let maxFret = 16
+    let ns = fingering args maxFret
+    mapM_ putStrLn (fretHeader root fret
+                   : buildFretNotes root (zip tuning ns) maxFret
+                   ++ fretFooter maxFret)
+
+-- NOTE:  Not needed.. not really a point to having this?
+-- -- Helper to display final results.
+-- outputResults :: [String] -> IO()
+-- outputResults = mapM_ putStrLn
+
+-- NOTE:
 -- take a min and max value for the fret display.
 -- Factor out `fret` from data Args, pass where needed.
 -- maybe a UI to choose fret or tab displays?
+
+-- How to set variable in record syntax without passing it in??
+-- I don't understand the making these functions return String and not IO()??
