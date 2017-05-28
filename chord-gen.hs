@@ -4,13 +4,13 @@ import Data.List
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
     deriving (Show, Enum, Eq)
 
--- If key is in this list, then convert flats to sharps.
-keysWithSharps :: Notes
-keysWithSharps = [A, B, D, E, G]
-
 -- Give more meaningful names.
 type Notes = [SingleNote]
 type Steps = [Int]
+
+-- If key is in this list, then convert flats to sharps.
+keysWithSharps :: Notes
+keysWithSharps = [A, B, D, E, G]
 
 -- Gets the predecessor of the SingleNote passed in. Wraps around so that
 -- the datatype SingleNote is circular.
@@ -106,21 +106,21 @@ formatNote n = if 'b' `elem` show n  then show n
 buildTab :: Args -> Int -> [Steps] -> [String]
 buildTab args@(Args tuning scale root fret) maxFret ns = do
     let nt = zip tuning ns
-    let bds = buildTabStrings nt
-    let maxLen = maximum $ map length bds
-    b <- bds
-    return (b ++ genSpaces maxLen b ++ "-|")
+    let bts = buildTabStrings nt
+    let maxLen = maximum $ map length bts
+    ts <- bts
+    return (ts ++ genSpaces maxLen ts ++ "-|")
     where
         genSpaces maxLen n
             | (maxLen - length n) == 0 = ""
             | otherwise = concat $ replicate (maxLen - length n) "-"
 
 buildTabStrings :: [(SingleNote, Steps)] -> [String]
-buildTabStrings xs = [formatTuning (fst x) ++ "||" ++ showPositions (snd x) | x <- xs]
+buildTabStrings ns = [formatTuning (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- ns]
     where showPositions [] = "--x"
-          showPositions [x] = if x < 10 then "--" ++ show x
-                              else "-" ++ show x
-          showPositions (x:xs) = showPositions [x] ++ showPositions xs
+          showPositions [p] = if p < 10 then "--" ++ show p
+                              else "-" ++ show p
+          showPositions (p:ps) = showPositions [p] ++ showPositions ps
 
 -- =========================================================
 -- Build Fret Diagram with Symbols
@@ -211,33 +211,23 @@ makeTab args@(Args tuning scale root fret) = do
     let ns = fingering1 args maxFret
     putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab args maxFret ns)
 
+-- -- -- Displays notes for one position for a chord/scale based on the given parameters.
+makeNotesOne :: Args -> IO()
+makeNotesOne args@(Args tuning scale root fret) = do
+    let maxFret = fret + 4
+    let ns = fingering1 args maxFret
+    outputResults (fretHeader root fret
+                   : buildFretNotes args maxFret ns
+                   ++ fretFooter maxFret)
+
 -- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
 makeNotesAll :: Args -> IO()
 makeNotesAll args@(Args tuning scale root fret) = do
     let maxFret = 16
     let ns = fingering args maxFret
-    putStrLn (fretHeader root fret)
-        >> mapM_ putStrLn (buildFretNotes args maxFret ns)
-        >> putStrLn (unlines (fretFooter maxFret))
-
--- -- Displays notes for one position for a chord/scale based on the given parameters.
-makeNotesOne :: Args -> IO()
-makeNotesOne args@(Args tuning scale root fret) = do
-    let maxFret = fret + 4
-    let ns = fingering1 args maxFret
-    putStrLn (fretHeader root fret)
-        >> mapM_ putStrLn (buildFretNotes args maxFret ns)
-        >> putStrLn (unlines (fretFooter maxFret))
-
--- -- Displays all symbols for all the positions of a chord/scale,
--- -- from the fret passed in to the 16th fret.
-makeSymbolsAll :: Args -> IO()
-makeSymbolsAll args@(Args tuning scale root fret) = do
-    let maxFret = 16
-    let ns = fingering args maxFret
-    putStrLn (fretHeader root fret)
-        >> mapM_ putStrLn (buildFretSymbols args maxFret ns)
-        >> putStrLn (unlines (fretFooter maxFret))
+    outputResults (fretHeader root fret
+                   : buildFretNotes args maxFret ns
+                   ++ fretFooter maxFret)
 
 -- Displays symbols for the fingering of one position for a chord/scale
 -- based on the given parameters.
@@ -245,9 +235,23 @@ makeSymbolsOne :: Args -> IO()
 makeSymbolsOne args@(Args tuning scale root fret) = do
     let maxFret = fret + 4
     let ns = fingering1 args maxFret
-    putStrLn (fretHeader root fret)
-        >> mapM_ putStrLn (buildFretSymbols args maxFret ns)
-        >> putStrLn (unlines (fretFooter maxFret))
+    outputResults (fretHeader root fret
+                   : buildFretSymbols args maxFret ns
+                   ++ fretFooter maxFret)
+
+-- -- -- Displays all symbols for all the positions of a chord/scale,
+-- -- -- from the fret passed in to the 16th fret.
+makeSymbolsAll :: Args -> IO()
+makeSymbolsAll args@(Args tuning scale root fret) = do
+    let maxFret = 16
+    let ns = fingering args maxFret
+    outputResults (fretHeader root fret
+                   : buildFretSymbols args maxFret ns
+                   ++ fretFooter maxFret)
+
+-- Helper to display final results.
+outputResults :: [String] -> IO()
+outputResults = mapM_ putStrLn
 
 -- take a min and max value for the fret display.
 -- Factor out `fret` from data Args, pass where needed.
