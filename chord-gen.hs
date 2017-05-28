@@ -65,17 +65,12 @@ chromaticScale maxFret root = take (maxFret + 1) (iterate halfStepU root)
 
 -- ===============================================
 
--- Generates list of indices where the notes in the scale are located on the
--- fretboard for a given string tuned to a specific note.
-positions :: Notes -> Notes -> Int -> [Steps]
-positions tuning scaleNotes maxFret = [getPos scaleNotes | t <- tuning,
-    let fretPosition s = elemIndices s (chromaticScale maxFret t),
-    let getPos ss = concat [fretPosition s | s <- ss]]
-
 -- Generates a list of Steps for each note in the chord per string.
 fingering :: Notes -> Notes -> Int -> Int -> [Steps]
 fingering tuning scaleNotes fret maxFret =
-    map (sort . filter (fret<=)) $ positions tuning scaleNotes maxFret
+        map (sort . filter(fret<=)) [getPos scaleNotes | t <- tuning,
+            let fretPosition s = elemIndices s (chromaticScale maxFret t),
+            let getPos ss = concat [fretPosition s | s <- ss]]
 
 fingering1 :: Notes -> Notes -> Int -> Int -> [Steps]
 fingering1 tuning scaleNotes fret maxFret =
@@ -161,7 +156,7 @@ fretFooter :: Int -> [String]
 fretFooter maxFret = do
     let prt = partition (10>) [1..maxFret]
     return ("    0   " ++ intercalate "     " (map show (fst prt))
-             ++ "     " ++ intercalate "    " (map show (snd prt)))
+             ++ "     " ++ intercalate "    " (map show (snd prt)) ++ "\n")
 
 -- =========================================================
 -- Functions to output guitar things diagrams
@@ -190,8 +185,8 @@ makeSymbolsOne tuning scale root fret = do
                    : buildFretSymbols (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- --Displays all symbols for all the positions of a chord/scale,
--- -- from the fret passed in to the 16th fret.
+--Displays all symbols for all the positions of a chord/scale,
+-- from the fret passed in to the 16th fret.
 makeSymbolsAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
 makeSymbolsAll tuning scale root fret = do
     let maxFret = 16
@@ -200,7 +195,7 @@ makeSymbolsAll tuning scale root fret = do
                    : buildFretSymbols (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- -- -- -- Displays notes for one position for a chord/scale based on the given parameters.
+-- Displays notes for one position for a chord/scale based on the given parameters.
 makeNotesOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
 makeNotesOne tuning scale root fret = do
     let maxFret = fret + 4
@@ -209,7 +204,7 @@ makeNotesOne tuning scale root fret = do
                    : buildFretNotes root (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- -- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
+-- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
 makeNotesAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
 makeNotesAll tuning scale root fret = do
     let maxFret = 16
