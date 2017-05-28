@@ -67,19 +67,19 @@ chromaticScale maxFret root = take (maxFret + 1) (iterate halfStepU root)
 
 -- Generates list of indices where the notes in the scale are located on the
 -- fretboard for a given string tuned to a specific note.
-positions :: Int -> Notes -> (SingleNote -> Notes) -> SingleNote -> [Steps]
-positions maxFret tuning scale root = [getPos (scale root) | t <- tuning,
+positions :: Notes -> Notes -> Int -> [Steps]
+positions tuning scaleNotes maxFret = [getPos scaleNotes | t <- tuning,
     let fretPosition s = elemIndices s (chromaticScale maxFret t),
     let getPos ss = concat [fretPosition s | s <- ss]]
 
 -- Generates a list of Steps for each note in the chord per string.
-fingering :: Args -> Int -> [Steps]
-fingering (Args tuning scale root fret) maxFret =
-    map (sort . filter (fret<=)) $ positions maxFret tuning scale root
+fingering :: Notes -> Notes -> Int -> Int -> [Steps]
+fingering tuning scaleNotes fret maxFret =
+    map (sort . filter (fret<=)) $ positions tuning scaleNotes maxFret
 
-fingering1 :: Args -> Int -> [Steps]
-fingering1 args maxFret =
-    map (take 1) $ fingering args maxFret
+fingering1 :: Notes -> Notes -> Int -> Int -> [Steps]
+fingering1 tuning scaleNotes fret maxFret =
+    map (take 1) $ fingering tuning scaleNotes fret maxFret
 
 -- ===============================================
 -- Functions for Output
@@ -152,16 +152,6 @@ makeStringNotes str root maxFret ns = do
     else "-----|"
 
 -- =========================================================
--- Data type to pass common args around as one unit.
--- =========================================================
-data Args = Args {
-                   tuning :: Notes,
-                   scale :: SingleNote -> Notes,
-                   root :: SingleNote,
-                   fret :: Int
-                 }
-
--- =========================================================
 -- Helper functions to display the header and footer of the diagrams.
 -- =========================================================
 fretHeader :: SingleNote -> Int -> String
@@ -184,46 +174,46 @@ makeGuitar tuning = do
             where allNotes maxFret = [chromaticScale maxFret n | n <- tuning]
 
 -- Displays a simple tab for a guitar chord with given parameters.
-makeTab :: Args -> IO()
-makeTab args@(Args tuning scale root fret) = do
+makeTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeTab tuning scale root fret = do
     let maxFret = fret + 4
-    let ns = fingering1 args maxFret
+    let ns = fingering1 tuning (scale root) fret maxFret
     putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
 
 -- Displays symbols for the fingering of one position for a chord/scale
 -- based on the given parameters.
-makeSymbolsOne :: Args -> IO()
-makeSymbolsOne args@(Args tuning scale root fret) = do
+makeSymbolsOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeSymbolsOne tuning scale root fret = do
     let maxFret = fret + 4
-    let ns = fingering1 args maxFret
+    let ns = fingering1 tuning (scale root) fret maxFret
     mapM_ putStrLn (fretHeader root fret
                    : buildFretSymbols (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
---Displays all symbols for all the positions of a chord/scale,
--- from the fret passed in to the 16th fret.
-makeSymbolsAll :: Args -> IO()
-makeSymbolsAll args@(Args tuning scale root fret) = do
+-- --Displays all symbols for all the positions of a chord/scale,
+-- -- from the fret passed in to the 16th fret.
+makeSymbolsAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeSymbolsAll tuning scale root fret = do
     let maxFret = 16
-    let ns = fingering args maxFret
+    let ns = fingering tuning (scale root) fret maxFret
     mapM_ putStrLn (fretHeader root fret
                    : buildFretSymbols (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- -- -- Displays notes for one position for a chord/scale based on the given parameters.
-makeNotesOne :: Args -> IO()
-makeNotesOne args@(Args tuning scale root fret) = do
+-- -- -- -- Displays notes for one position for a chord/scale based on the given parameters.
+makeNotesOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeNotesOne tuning scale root fret = do
     let maxFret = fret + 4
-    let ns = fingering1 args maxFret
+    let ns = fingering1 tuning (scale root) fret maxFret
     mapM_ putStrLn (fretHeader root fret
                    : buildFretNotes root (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
 
--- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
-makeNotesAll :: Args -> IO()
-makeNotesAll args@(Args tuning scale root fret) = do
+-- -- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
+makeNotesAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
+makeNotesAll tuning scale root fret = do
     let maxFret = 16
-    let ns = fingering args maxFret
+    let ns = fingering tuning (scale root) fret maxFret
     mapM_ putStrLn (fretHeader root fret
                    : buildFretNotes root (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
