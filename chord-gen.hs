@@ -188,17 +188,16 @@ makeGuitar tuning = do
             where allNotes maxFret = [chromaticScale maxFret n | n <- tuning]
 
 -- Displays a simple tab for a guitar chord with given parameters.
-makeTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
-makeTab tuning scale root = do
-    putStr "\nEnter minimum fret: "
-    maybeFret <- getLine
-    let fret = validateFret maybeFret
-    case fret of
-        Nothing -> makeTab tuning scale root
-        Just fret -> do
-            let maxFret = fret + 4
-            let ns = fingering2 tuning (scale root) fret maxFret
-            putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
+-- makeTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
+-- makeTab tuning scale root = do
+--     putStr "\nEnter minimum fret: "
+--     maybeFret <- getLine
+--     let fret = validateFret maybeFret
+--     case fret of
+--         Nothing -> makeTab tuning scale root
+--         Just fret -> do
+--             let maxFret = fret + 4
+--             let ns = fingering2 tuning (scale root) fret maxFret
 
 -- Displays notes for one position for a chord/scale based on the given parameters.
 makeOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
@@ -211,16 +210,18 @@ makeOne tuning scale root = do
         Just fret -> do
             let maxFret = fret + 4
             let ns = fingering2 tuning (scale root) fret maxFret
-            putStr "\n1. Notes\n2. Symbols\nChoose an option: "
+            putStr "\n1. Tab\n2. Symbols\n3. Notes\nChoose an option: "
             choice <- getLine
             case choice of
                 "1" ->
-                    output(fretHeader root fret
-                           : buildFretNotes root (zip tuning ns) maxFret
-                           ++ fretFooter maxFret)
+                    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
                 "2" ->
                     output(fretHeader root fret
                            : buildFretSymbols (zip tuning ns) maxFret
+                           ++ fretFooter maxFret)
+                "3" ->
+                    output(fretHeader root fret
+                           : buildFretNotes root (zip tuning ns) maxFret
                            ++ fretFooter maxFret)
                 _ -> makeOne tuning scale root
 
