@@ -1,4 +1,5 @@
 import Data.List
+import Text.Read
 
 -- Representation of notes.
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
@@ -87,19 +88,19 @@ flatSharp :: SingleNote -> String
 flatSharp n = if 'b' `elem` show n then head (show (halfStepD n)) : "#"
               else show n ++ "-"
 
-formatTuning :: SingleNote -> String
-formatTuning n = if 'b' `elem` show n then show n ++ " "
-                 else show n ++ "  "
-
+-- formatTuning :: SingleNote -> String
+-- formatTuning n = if 'b' `elem` show n then show n
+--                  else show n ++ " "
+--
 formatNote :: SingleNote -> String
 formatNote n = if 'b' `elem` show n  then show n
-               else show n ++ "-"
+               else show n ++ " "
 
 -- =========================================================
 -- Build Tab Diagram
 -- =========================================================
 buildTab :: [(SingleNote, Steps)] -> [String]
-buildTab ns = [formatTuning (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- ns]
+buildTab ns = [formatNote (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- ns]
     where
         showPositions [] = "--x"
         showPositions [p] = if p < 10 then "--" ++ show p ++ "--|"
@@ -111,7 +112,7 @@ buildTab ns = [formatTuning (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- n
 -- =========================================================
 buildFretSymbols :: [(SingleNote, Steps)] -> Int -> [String]
 buildFretSymbols nt maxFret =
-    [formatTuning (fst ns) ++ concat (fretSymbols maxFret (snd ns)) | ns <- nt]
+    [formatNote (fst ns) ++ concat (fretSymbols maxFret (snd ns)) | ns <- nt]
 
 fretSymbols :: Int -> Steps -> [String]
 fretSymbols maxFret [] = ["|x|" ++ concat (replicate maxFret "-----|")]
@@ -130,7 +131,7 @@ makeStringSymbols maxFret ns = do
 -- =========================================================
 buildFretNotes :: SingleNote -> [(SingleNote, Steps)] -> Int -> [String]
 buildFretNotes root nt maxFret =
-    [formatTuning (fst ns) ++ concat (fretNotes (fst ns) root maxFret (snd ns)) | ns <- nt]
+    [formatNote (fst ns) ++ concat (fretNotes (fst ns) root maxFret (snd ns)) | ns <- nt]
 
 fretNotes :: SingleNote -> SingleNote -> Int -> Steps -> [String]
 fretNotes str root maxFret [] = ["|x|" ++ concat (replicate maxFret "-----|")]
@@ -175,43 +176,58 @@ makeTab tuning scale root fret = do
     let ns = fingering1 tuning (scale root) fret maxFret
     putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
 
--- Displays symbols for the fingering of one position for a chord/scale
--- based on the given parameters.
-makeSymbolsOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeSymbolsOne tuning scale root fret = do
-    let maxFret = fret + 4
-    let ns = fingering1 tuning (scale root) fret maxFret
-    mapM_ putStrLn (fretHeader root fret
-                   : buildFretSymbols (zip tuning ns) maxFret
-                   ++ fretFooter maxFret)
-
---Displays all symbols for all the positions of a chord/scale,
--- from the fret passed in to the 16th fret.
-makeSymbolsAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeSymbolsAll tuning scale root fret = do
-    let maxFret = 16
-    let ns = fingering tuning (scale root) fret maxFret
-    mapM_ putStrLn (fretHeader root fret
-                   : buildFretSymbols (zip tuning ns) maxFret
-                   ++ fretFooter maxFret)
-
 -- Displays notes for one position for a chord/scale based on the given parameters.
-makeNotesOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeNotesOne tuning scale root fret = do
-    let maxFret = fret + 4
-    let ns = fingering1 tuning (scale root) fret maxFret
-    mapM_ putStrLn (fretHeader root fret
-                   : buildFretNotes root (zip tuning ns) maxFret
-                   ++ fretFooter maxFret)
+-- makeOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
+makeOne tuning scale root = do
+    putStr "\nEnter minimum fret: "
+    maybeFret <- getLine
+    let fret = validateFret maybeFret
+    case fret of
+        Nothing -> makeOne tuning scale root
+        Just fret -> do
+            let maxFret = fret + 4
+            let ns = fingering1 tuning (scale root) fret maxFret
+            putStr "\n1. Notes\n2. Symbols\nChoose an option: "
+            choice <- getLine
+            case choice of
+                "1" ->
+                    output(fretHeader root fret
+                           : buildFretNotes root (zip tuning ns) maxFret
+                           ++ fretFooter maxFret)
+                "2" ->
+                    output(fretHeader root fret
+                           : buildFretSymbols (zip tuning ns) maxFret
+                           ++ fretFooter maxFret)
+                _ -> makeAll tuning scale root
+
+validateFret :: String -> Maybe Int
+validateFret fret = check (readMaybe fret :: Maybe Int)
+    where
+        check Nothing = Nothing
+        check (Just fret) = if fret >= 0 then Just fret
+                            else Nothing
 
 -- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
-makeNotesAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeNotesAll tuning scale root fret = do
+makeAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
+makeAll tuning scale root = do
     let maxFret = 16
+    let fret = 0
     let ns = fingering tuning (scale root) fret maxFret
-    mapM_ putStrLn (fretHeader root fret
+    putStr "\n1. Notes\n2. Symbols\nChoose an option: "
+    choice <- getLine
+    case choice of
+        "1" ->
+            output(fretHeader root fret
                    : buildFretNotes root (zip tuning ns) maxFret
                    ++ fretFooter maxFret)
+        "2" ->
+            output(fretHeader root fret
+                   : buildFretSymbols (zip tuning ns) maxFret
+                   ++ fretFooter maxFret)
+        _ -> makeAll tuning scale root
+
+output :: [String] -> IO()
+output = mapM_ putStrLn
 
 -- NOTE:  Not needed.. not really a point to having this?
 -- -- Helper to display final results.
