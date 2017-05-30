@@ -1,5 +1,6 @@
 import Data.List
 import Text.Read
+import System.Environment
 
 -- Representation of notes.
 data SingleNote = A | Bb | B | C | Db | D | Eb | E | F | Gb | G | Ab
@@ -73,9 +74,16 @@ fingering tuning scaleNotes fret maxFret =
             let fretPosition s = elemIndices s (chromaticScale maxFret t),
             let getPos ss = concat [fretPosition s | s <- ss]]
 
-fingering1 :: Notes -> Notes -> Int -> Int -> [Steps]
-fingering1 tuning scaleNotes fret maxFret =
-    map (take 1) $ fingering tuning scaleNotes fret maxFret
+fingering2 :: Notes -> Notes -> Int -> Int -> [Steps]
+fingering2 tuning scaleNotes fret maxFret =
+    map (filterDifference . take 2) $ fingering tuning scaleNotes fret maxFret
+
+filterDifference :: Steps -> Steps
+filterDifference [] = []
+filterDifference [x] = [x]
+filterDifference (x:y:xs) | getDifference x y = [x, y]
+                          | otherwise = [x]
+                  where getDifference x y = abs (x - y) <= 2
 
 -- ===============================================
 -- Functions for Output
@@ -100,12 +108,22 @@ formatNote n = if 'b' `elem` show n  then show n
 -- Build Tab Diagram
 -- =========================================================
 buildTab :: [(SingleNote, Steps)] -> [String]
-buildTab ns = [formatNote (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- ns]
+buildTab nt = do
+    let bds = buildTabStrings nt
+    let maxLen = maximum $ map length bds
+    b <- bds
+    return (b ++ genSpaces maxLen b ++ "-|")
     where
-        showPositions [] = "--x"
-        showPositions [p] = if p < 10 then "--" ++ show p ++ "--|"
-                              else "-" ++ show p ++ "--|"
-        showPositions (p:ps) = showPositions [p] ++ showPositions ps
+        genSpaces maxLen n
+            | (maxLen - length n) == 0 = ""
+            | otherwise = concat $ replicate (maxLen - length n) "-"
+
+buildTabStrings :: [(SingleNote, Steps)] -> [String]
+buildTabStrings xs = [formatNote (fst x) ++ "||" ++ showPositions (snd x) | x <- xs]
+    where showPositions [] = "--x"
+          showPositions [x] = if x < 10 then "--" ++ show x
+                              else "-" ++ show x
+          showPositions (x:xs) = showPositions [x] ++ showPositions xs
 
 -- =========================================================
 -- Build Fret Diagram with Symbols
@@ -170,14 +188,20 @@ makeGuitar tuning = do
             where allNotes maxFret = [chromaticScale maxFret n | n <- tuning]
 
 -- Displays a simple tab for a guitar chord with given parameters.
-makeTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> Int -> IO()
-makeTab tuning scale root fret = do
-    let maxFret = fret + 4
-    let ns = fingering1 tuning (scale root) fret maxFret
-    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
+makeTab :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
+makeTab tuning scale root = do
+    putStr "\nEnter minimum fret: "
+    maybeFret <- getLine
+    let fret = validateFret maybeFret
+    case fret of
+        Nothing -> makeTab tuning scale root
+        Just fret -> do
+            let maxFret = fret + 4
+            let ns = fingering2 tuning (scale root) fret maxFret
+            putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
 
 -- Displays notes for one position for a chord/scale based on the given parameters.
--- makeOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
+makeOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 makeOne tuning scale root = do
     putStr "\nEnter minimum fret: "
     maybeFret <- getLine
@@ -186,7 +210,7 @@ makeOne tuning scale root = do
         Nothing -> makeOne tuning scale root
         Just fret -> do
             let maxFret = fret + 4
-            let ns = fingering1 tuning (scale root) fret maxFret
+            let ns = fingering2 tuning (scale root) fret maxFret
             putStr "\n1. Notes\n2. Symbols\nChoose an option: "
             choice <- getLine
             case choice of
@@ -198,7 +222,7 @@ makeOne tuning scale root = do
                     output(fretHeader root fret
                            : buildFretSymbols (zip tuning ns) maxFret
                            ++ fretFooter maxFret)
-                _ -> makeAll tuning scale root
+                _ -> makeOne tuning scale root
 
 validateFret :: String -> Maybe Int
 validateFret fret = check (readMaybe fret :: Maybe Int)
