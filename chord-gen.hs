@@ -171,7 +171,7 @@ fretHeader root fret = "\nRoot: " ++ show root ++ "\nMin. Fret: " ++ show fret
 fretFooter :: Int -> String
 fretFooter maxFret = do
     let prt = partition (10>) [1..maxFret]
-    "    0   " ++ intercalate "     " (map show (fst prt))
+    "   0   " ++ intercalate "     " (map show (fst prt))
      ++ "     " ++ intercalate "    " (map show (snd prt)) ++ "\n"
 
 -- =========================================================
@@ -190,37 +190,39 @@ makeGuitar tuning = do
 makeOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 makeOne tuning scale root = do
     clearScreen
-    putStr "\nEnter minimum fret: "
-    maybeFret <- getLine
-    let fret = validateFret maybeFret
-    case fret of
-        Nothing -> makeOne tuning scale root
-        Just fret -> do
-            let maxFret = fret + 4
-            let ns = fingering2 tuning (scale root) fret maxFret
-            putStr "\n1. Tab\n2. Symbols\n3. Notes\nChoose an option: "
+    fret <- getFret
+    let maxFret = fret + 4
+    let ns = fingering2 tuning (scale root) fret maxFret
+    optionsMenu (zip tuning ns) root fret maxFret
+    where
+        getFret :: IO Int
+        getFret = do
+            putStr "\nEnter minimum fret: "
+            maybeFret <- getLine
+            case readMaybe maybeFret of
+                Just fret | fret >= 0 -> return fret
+                _ -> getFret
+
+        optionsMenu :: [(SingleNote, Steps)] -> SingleNote -> Int -> Int -> IO()
+        optionsMenu nt root fret maxFret = do
+            putStr "\n1. Tab\n2. Symbols\n3. Notes\n4. Re-enter minimum fret\nChoose an option: "
             choice <- getLine
             case choice of
                 "1" ->
-                    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab (zip tuning ns))
+                    putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab nt)
                 "2" ->
                     output(fretHeader root fret
-                           : buildFretSymbols (zip tuning ns) maxFret
+                           : buildFretSymbols nt maxFret
                            ++ [fretFooter maxFret])
                 "3" ->
                     output(fretHeader root fret
-                           : buildFretNotes root (zip tuning ns) maxFret
+                           : buildFretNotes root nt maxFret
                            ++ [fretFooter maxFret])
-                _ -> makeOne tuning scale root
-    where
-        validateFret :: String -> Maybe Int
-        validateFret fret = check (readMaybe fret :: Maybe Int)
-            where
-                check Nothing = Nothing
-                check (Just fret) = if fret >= 0 then Just fret
-                                    else Nothing
 
--- -- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
+                "4" -> makeOne tuning scale root
+                _ -> optionsMenu nt root fret maxFret
+
+-- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
 makeAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 makeAll tuning scale root = do
     clearScreen
