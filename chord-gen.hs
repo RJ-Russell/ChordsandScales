@@ -81,9 +81,8 @@ fingering2 tuning scaleNotes fret maxFret =
         filterDifference :: Steps -> Steps
         filterDifference [] = []
         filterDifference [x] = [x]
-        filterDifference (x:y:xs) | getDifference x y = [x, y]
+        filterDifference [x, y] | abs(x - y) <= 2 = [x, y]
                                   | otherwise = [x]
-                          where getDifference x y = abs (x - y) <= 2
 
 -- ===============================================
 -- Functions for Output
@@ -165,7 +164,7 @@ buildFretNotes root nt maxFret =
             else "-----|"
 
 -- =========================================================
--- Helper functions to display the header and footer of the diagrams.
+-- Helper functions to displayBoard the header and footer of the diagrams.
 -- =========================================================
 fretHeader :: SingleNote -> Int -> String
 fretHeader root fret = "\nRoot: " ++ show root ++ "\nMin. Fret: " ++ show fret
@@ -176,16 +175,11 @@ fretFooter maxFret = do
     "   0   " ++ intercalate "     " (map show (fst prt))
      ++ "     " ++ intercalate "    " (map show (snd prt)) ++ "\n"
 
--- =========================================================
--- Functions to output guitar things diagrams
--- =========================================================
-output :: [String] -> IO()
-output = mapM_ putStrLn
 
-clearScreen :: IO()
-clearScreen = putStr "\ESC[2J"
-
--- Displays chromatic scale for each of the strings based on the tuning.
+-- =========================================================
+-- Functions to construct diagrams.
+-- =========================================================
+-- displayBoards chromatic scale for each of the strings based on the tuning.
 makeGuitar :: Notes -> IO()
 makeGuitar tuning = do
     clearScreen
@@ -194,23 +188,16 @@ makeGuitar tuning = do
     where
         allNotes maxFret = [chromaticScale maxFret n | n <- tuning]
 
--- Displays notes for one position for a chord/scale based on the given parameters.
+-- displayBoards notes for one position for a chord/scale based on the given parameters.
 makeOne :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 makeOne tuning scale root = do
     clearScreen
     fret <- getFret
     let maxFret = fret + 4
-    let ns = fingering2 tuning (scale root) fret maxFret
-    optionsMenu (zip tuning ns) root fret maxFret
+        nt = zip tuning (fingering2 tuning (scale root) fret maxFret)
+    optionsMenu nt root fret maxFret
     where
-        getFret :: IO Int
-        getFret = do
-            putStr "\nEnter minimum fret: "
-            maybeFret <- getLine
-            case readMaybe maybeFret of
-                Just fret | fret >= 0 -> return fret
-                _ -> getFret
-
+        -- NOTE: How can I take these args out? The variables are local defined above?
         optionsMenu :: [(SingleNote, Steps)] -> SingleNote -> Int -> Int -> IO()
         optionsMenu nt root fret maxFret = do
             putStr "\n1. Tab\n2. Symbols\n3. Notes\n4. Re-enter minimum fret\nChoose an option: "
@@ -219,33 +206,44 @@ makeOne tuning scale root = do
                 "1" ->
                     putStrLn (fretHeader root fret) >> mapM_ putStrLn (buildTab nt)
                 "2" ->
-                    output(fretHeader root fret
-                           : buildFretSymbols nt maxFret
-                           ++ [fretFooter maxFret])
+                    wrapBoard root fret maxFret (buildFretSymbols nt maxFret)
                 "3" ->
-                    output(fretHeader root fret
-                           : buildFretNotes root nt maxFret
-                           ++ [fretFooter maxFret])
-
+                    wrapBoard root fret maxFret (buildFretNotes root nt maxFret)
                 "4" -> makeOne tuning scale root
                 _ -> optionsMenu nt root fret maxFret
 
--- Displays all notes for a chord/scale, from the fret passed in to the 16th fret.
+-- displayBoards all notes for a chord/scale, from the fret passed in to the 16th fret.
 makeAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 makeAll tuning scale root = do
-    clearScreen
     let maxFret = 16
-    let fret = 0
-    let ns = fingering tuning (scale root) fret maxFret
+        fret = 0
+        nt = zip tuning (fingering tuning (scale root) fret maxFret)
     putStr "\n1. Symbols\n2. Notes\nChoose an option: "
     choice <- getLine
     case choice of
         "1" ->
-            output(fretHeader root fret
-                   : buildFretSymbols (zip tuning ns) maxFret
-                   ++ [fretFooter maxFret])
+            wrapBoard root fret maxFret (buildFretSymbols nt maxFret)
         "2" ->
-            output(fretHeader root fret
-                   : buildFretNotes root (zip tuning ns) maxFret
-                   ++ [fretFooter maxFret])
+            wrapBoard root fret maxFret (buildFretNotes root nt maxFret)
         _ -> makeAll tuning scale root
+
+-- =========================================================
+-- Helper functions for IO actions.
+-- =========================================================
+getFret :: IO Int
+getFret = do
+    putStr "\nEnter minimum fret (0 - 12): "
+    maybeFret <- getLine
+    case readMaybe maybeFret of
+        Just fret | fret >= 0 && fret <= 12 -> return fret
+        _ -> getFret
+
+displayBoard :: [String] -> IO()
+displayBoard = mapM_ putStrLn
+
+wrapBoard :: SingleNote -> Int -> Int -> [String] -> IO()
+wrapBoard root fret maxFret output =
+    displayBoard([fretHeader root fret] ++ output ++ [fretFooter maxFret])
+
+clearScreen :: IO()
+clearScreen = putStr "\ESC[2J"
