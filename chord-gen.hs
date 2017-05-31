@@ -36,9 +36,11 @@ genScale :: SingleNote -> Steps -> Notes
 genScale n ss = [nSteps n s | s <- ss]
 
 -- Scales.
-diatonic, pentatonic :: SingleNote -> Notes
-diatonic root      = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
-pentatonic root  = genScale root [0, 2, 4, 7, 9, 12]
+diatonicMaj, diatonicMin, pentatonicMaj, pentatonicMin :: SingleNote -> Notes
+diatonicMaj root = genScale root [0, 2, 4, 5, 7, 9, 11, 12]
+diatonicMin root = genScale root [0, 2, 3, 5, 7, 8, 10, 12]
+pentatonicMaj root = genScale root [0, 2, 4, 7, 9, 12]
+pentatonicMin root = genScale root [0, 3, 5, 7, 10, 12]
 
 -- Scales for chord construction.
 majTriad, minTriad, maj7th, min7th, sus4, sus2 :: SingleNote -> Notes
@@ -177,6 +179,12 @@ fretFooter maxFret = do
 -- =========================================================
 -- Functions to output guitar things diagrams
 -- =========================================================
+output :: [String] -> IO()
+output = mapM_ putStrLn
+
+clearScreen :: IO()
+clearScreen = putStr "\ESC[2J"
+
 -- Displays chromatic scale for each of the strings based on the tuning.
 makeGuitar :: Notes -> IO()
 makeGuitar tuning = do
@@ -241,13 +249,3 @@ makeAll tuning scale root = do
                    : buildFretNotes root (zip tuning ns) maxFret
                    ++ [fretFooter maxFret])
         _ -> makeAll tuning scale root
-
-output :: [String] -> IO()
-output = mapM_ putStrLn
-
-clearScreen :: IO()
-clearScreen = putStr "\ESC[2J"
-
--- NOTE:
--- Breaking out functionality for some of this stuff??
--- I don't understand the making these functions return String and not IO()??
