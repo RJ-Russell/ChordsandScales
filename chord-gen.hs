@@ -26,14 +26,14 @@ halfStepU Ab = A
 halfStepU n = succ n
 
 -- Returns a SingleNote that is `n` steps from the SingleNote passed in.
-nSteps :: SingleNote -> Int -> SingleNote
-nSteps n x = iterate halfStepU n !! x
+xSteps :: SingleNote -> Int -> SingleNote
+xSteps n x = iterate halfStepU n !! x
 
 -- ====== SCALES =================================
 -- Generates a scale of SingleNotes, using the SingleNote argument
 -- as the starting point and the a predefined array of int steps as the scale.
 genScale :: SingleNote -> Steps -> Notes
-genScale n ss = [nSteps n s | s <- ss]
+genScale n ss = [xSteps n s | s <- ss]
 
 -- Scales.
 diatonicMaj, diatonicMin, pentatonicMaj, pentatonicMin :: SingleNote -> Notes
@@ -82,7 +82,7 @@ fingering2 tuning scaleNotes fret maxFret =
         filterDifference [] = []
         filterDifference [x] = [x]
         filterDifference [x, y] | abs(x - y) <= 2 = [x, y]
-                                  | otherwise = [x]
+                                | otherwise = [x]
 
 -- ===============================================
 -- Functions for Output
@@ -160,8 +160,8 @@ buildFretNotes root nt maxFret =
         makeStringNotes str root maxFret ns = do
             fret <- [1..maxFret]
             if fret `elem` ns then
-                if root `elem` keysWithSharps then "--" ++ flatSharp (nSteps str fret) ++ "-|"
-                else "--" ++ formatNote (nSteps str fret) ++ "-|"
+                if root `elem` keysWithSharps then "--" ++ flatSharp (xSteps str fret) ++ "-|"
+                else "--" ++ formatNote (xSteps str fret) ++ "-|"
             else "-----|"
 
 -- =========================================================
@@ -179,7 +179,7 @@ fretFooter maxFret = do
 -- =========================================================
 -- Functions to construct diagrams.
 -- =========================================================
--- displayBoards chromatic scale for each of the strings based on the tuning.
+-- Generate chromatic scale for each of the strings based on the tuning.
 buildGuitar :: Notes -> IO()
 buildGuitar tuning = do
     clearScreen
@@ -188,7 +188,7 @@ buildGuitar tuning = do
     where
         allNotes maxFret = [chromaticScale maxFret n | n <- tuning]
 
--- displayBoards notes for one position for a chord/scale based on the given parameters.
+-- Generate one position for a chord/scale.
 buildSingle :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 buildSingle tuning scale root = do
     clearScreen
@@ -200,7 +200,7 @@ buildSingle tuning scale root = do
           ("2", "Symbols", wrap(buildFretSymbols nt maxFret)),
           ("3", "Notes", wrap(buildFretNotes root nt maxFret))]
 
--- Generates all notes for a chord/scale, from the fret passed in to the 16th fret.
+-- Generates all notes for a chord/scale, from fret 0 to the 16th fret.
 buildAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
 buildAll tuning scale root = do
     clearScreen

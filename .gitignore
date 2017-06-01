@@ -1,5 +1,3 @@
-*.aux
-*.log
-*.out
-
-/proposal
+chord
+chord-gen.hi
+chord-gen.o
