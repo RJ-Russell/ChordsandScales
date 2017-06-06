@@ -100,30 +100,33 @@ formatNote :: SingleNote -> String
 formatNote n = if 'b' `elem` show n  then show n
                else show n ++ " "
 
+formatNoteDash :: SingleNote -> String
+formatNoteDash n = if 'b' `elem` show n  then show n
+                   else show n ++ "-"
 -- =========================================================
 -- Build Tab Diagram
 -- =========================================================
 buildTab :: [(SingleNote, Steps)] -> [String]
-buildTab nt = do
-    let bds = buildTabStrings nt
-    let maxLen = maximum $ map length bds
-    b <- bds
+buildTab nts = do
+    let bts = buildTabStrings nts
+    let maxLen = maximum $ map length bts
+    b <- bts
     return (b ++ genSpaces maxLen b ++ "-|")
     where
         buildTabStrings :: [(SingleNote, Steps)] -> [String]
-        buildTabStrings nt =
-            [formatNote (fst n) ++ "||" ++ showPositions (snd n) | n <- nt]
+        buildTabStrings nts =
+            [formatNote (fst nt) ++ "||" ++ showPositions (snd nt) | nt <- nts]
 
         showPositions :: Steps -> String
         showPositions [] = "--x"
-        showPositions [x] = if x < 10 then "--" ++ show x
-                            else "-" ++ show x
-        showPositions (x:xs) = showPositions [x] ++ showPositions xs
+        showPositions [s] = if s < 10 then "--" ++ show s
+                            else "-" ++ show s
+        showPositions (s:ss) = showPositions [s] ++ showPositions ss
 
         genSpaces :: Int -> String -> String
-        genSpaces maxLen n
-            | (maxLen - length n) == 0 = ""
-            | otherwise = concat $ replicate (maxLen - length n) "-"
+        genSpaces maxLen s
+            | (maxLen - length s) == 0 = ""
+            | otherwise = concat $ replicate (maxLen - length s) "-"
 
 -- =========================================================
 -- Build Fret Diagram with Symbols
@@ -147,23 +150,23 @@ buildFretSymbols nts maxFret =
 -- =========================================================
 -- Build Fret Diagram with Notes
 -- =========================================================
-buildFretNotes :: [(SingleNote, Steps)] -> Int -> [String]
-buildFretNotes nts maxFret =
-    [formatNote (fst nt) ++ fretNotes maxFret nt | nt <- nts]
+buildFretNotes :: SingleNote -> [(SingleNote, Steps)] -> Int -> [String]
+buildFretNotes root nts maxFret =
+    [formatNote (fst nt) ++ fretNotes root nt maxFret | nt <- nts]
     where
-        fretNotes :: Int -> (SingleNote, Steps) -> String
-        fretNotes maxFret (_, []) = "|x|" ++ concat (replicate maxFret "-----|")
-        fretNotes maxFret (base, n:ns)
-            | n == 0 = "|o|" ++ makeStringNotes maxFret base ns
-            | otherwise = "| |" ++ makeStringNotes maxFret base (n:ns)
+        fretNotes :: SingleNote -> (SingleNote, Steps) -> Int -> String
+        fretNotes _ (_, []) maxFret = "|x|" ++ concat (replicate maxFret "-----|")
+        fretNotes root (base, n:ns) maxFret
+            | n == 0 = "|o|" ++ makeStringNotes root base ns maxFret
+            | otherwise = "| |" ++ makeStringNotes root base (n:ns) maxFret
 
-        makeStringNotes :: Int -> SingleNote -> Steps -> String
-        makeStringNotes maxFret base ns = do
+        makeStringNotes :: SingleNote -> SingleNote -> Steps -> Int -> String
+        makeStringNotes root base ns maxFret = do
             fret <- [1..maxFret]
             if fret `elem` ns then
-                if base `elem` keysWithSharps then
+                if root `elem` keysWithSharps then
                     "--" ++ flatSharp (nSteps base fret) ++ "-|"
-                else "--" ++ formatNote (nSteps base fret) ++ "-|"
+                else "--" ++ formatNoteDash (nSteps base fret) ++ "-|"
             else "-----|"
 
 -- =========================================================
@@ -201,7 +204,7 @@ buildSingle tuning scale root = do
         wrap = wrapBoard root minFret maxFret
     menu [("1", "Tab", mapM_ putStrLn (buildTab nt)),
           ("2", "Symbols", wrap(buildFretSymbols nt maxFret)),
-          ("3", "Notes", wrap(buildFretNotes nt maxFret))]
+          ("3", "Notes", wrap(buildFretNotes root nt maxFret))]
 
 -- Generates all notes for a chord/scale, from fret 0 to the 16th fret.
 buildAll :: Notes -> (SingleNote -> Notes) -> SingleNote -> IO()
@@ -212,7 +215,7 @@ buildAll tuning scale root = do
         nt = zip tuning (fingering tuning (scale root) minFret maxFret)
         wrap = wrapBoard root minFret maxFret
     menu [("1", "Symbols", wrap (buildFretSymbols nt maxFret)),
-          ("2", "Notes", wrap(buildFretNotes nt maxFret))]
+          ("2", "Notes", wrap(buildFretNotes root nt maxFret))]
 
 -- =========================================================
 -- Helper functions for IO actions.
