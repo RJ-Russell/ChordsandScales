@@ -69,15 +69,15 @@ ukulele  = [A, E, C, G]
 
 -- Generates a list of Steps for each note in the chord per string.
 fingering :: Notes -> Notes -> Int -> Int -> [Steps]
-fingering tuning scaleNotes minFret maxFret =
-    map (sort . filter(minFret<=))
-        [fretPosition scaleNotes | t <- tuning,
-            let fretPosition ss =
-                    concat [elemIndices s (chromatic t maxFret) | s <- ss]]
+fingering tuning scaleNotes minFret maxFret = map sort
+    [fretPosition scaleNotes | t <- tuning,
+        let fretPosition ss =
+                concat [elemIndices s (chromatic t maxFret) | s <- ss]]
 
 fingering2 :: Notes -> Notes -> Int -> Int -> [Steps]
 fingering2 tuning scaleNotes minFret maxFret =
-    map (filterDifference . take 2) $ fingering tuning scaleNotes minFret maxFret
+    map (filterDifference . take 2 . filter(minFret<=))
+        $ fingering tuning scaleNotes minFret maxFret
     where
         filterDifference :: Steps -> Steps
         filterDifference [] = []
@@ -202,7 +202,7 @@ buildSingle tuning scale root = do
     let maxFret = minFret + 4
         nts = zip tuning (fingering2 tuning (scale root) minFret maxFret)
         wrap = wrapBoard root minFret maxFret
-    menu [("1", "Tab", mapM_ putStrLn (buildTab nts)),
+    menu [("1", "Tab", displayBoard(fretHeader root minFret : buildTab nts)),
           ("2", "Symbols", wrap(buildFretSymbols nts maxFret)),
           ("3", "Notes", wrap(buildFretNotes root nts maxFret))]
 
